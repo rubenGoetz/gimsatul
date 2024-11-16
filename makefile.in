@@ -8,9 +8,22 @@ OBJ=$(SRC:.c=.o)
 %.o: %.c $(DEP) makefile
 	$(CC) $(CFLAGS) -c $<
 
-all: gimsatul
+APPSRC=application.c handle.c parse.c witness.c
+
+LIBSRT=$(sort $(wildcard *.c))
+LIBSUB=$(subst ./,,$(LIBSRT))
+LIBSRC=$(filter-out gimsatul.c $(APPSRC),$(LIBSUB))
+
+LIBOBJ=$(LIBSRC:.c=.o)
+
+LIBS=libgimsatul.a
+
+all: gimsatul libgimsatul.a
 gimsatul: $(OBJ) makefile
 	$(CC) $(CFLAGS) -o $@ $(OBJ) -lm -pthread
+
+libgimsatul.a: $(LIBOBJ) makefile
+	$(AR) rc $@ $(LIBOBJ)
 
 build.o: config.h
 config.h: VERSION makefile

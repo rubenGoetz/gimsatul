@@ -5,3 +5,5 @@ gimsatul
 *.[ch].gc*
 gmon.out
 *~
+.idea
+*.a

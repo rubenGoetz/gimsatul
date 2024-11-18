@@ -8,7 +8,7 @@ OBJ=$(SRC:.c=.o)
 %.o: %.c $(DEP) makefile
 	$(CC) $(CFLAGS) -c $<
 
-APPSRC=parse.c witness.c
+APPSRC=parse.c
 
 LIBSRT=$(sort $(wildcard *.c))
 LIBSUB=$(subst ,,$(LIBSRT))

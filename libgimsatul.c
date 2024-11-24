@@ -1,10 +1,18 @@
 #include "libgimsatul.h"
 #include "ruler.h"
 #include "build.h"
+#include "witness.h"
+#include "solve.h"
+#include "options.h"
+#include "catch.h"
+#include "simplify.h"
+#include "clone.h"
+#include "detach.h"
 
+#include <string.h>
 #include <stdlib.h>
 
-typedef struct gimsatul {
+struct gimsatul {
     struct options options;
     struct ruler *ruler;
     signed char *witness;
@@ -16,19 +24,19 @@ typedef struct gimsatul {
     bool trivial;
 };
 
-const char *gimsatul_signature (void) { return "gimsatul-" VERSION; }
+// const char *gimsatul_signature (void) { return "gimsatul-" VERSION; }
 
 // Default (partial) IPASIR interface.
 
-gimsatul *gimsatul_init (size_t variables, size_t clauses) {
+gimsatul *gimsatul_init (int variables, int clauses) {
     // Adapted from gimsatul.c/main()
     struct gimsatul *solver = (struct gimsatul*) calloc(1, sizeof(struct gimsatul));
-    initialize_options(&(solver->options));
+    // initialize_options(&(solver->options));
     solver->ruler = new_ruler(variables,&(solver->options));
     set_signal_handlers(solver->ruler);
     solver->variables = variables;
     solver->clauses = clauses;
-    signed char *witness = NULL;
+    // signed char *witness = NULL;
 
     solver->marked = allocate_and_clear_block (solver->variables);
     INIT(solver->clause);
@@ -98,7 +106,7 @@ int gimsatul_solve (gimsatul *solver) {
     // Adapted from gimsatul.c/main()
     simplify_ruler(solver->ruler);
     clone_rings(solver->ruler);
-    struct ring *winner = slove_rings(solver->ruler);
+    struct ring *winner = solve_rings(solver->ruler);
     signed char *witness = extend_witness(winner);
     // check_witness(witness, solver->ruler->original);
     solver->witness = witness;

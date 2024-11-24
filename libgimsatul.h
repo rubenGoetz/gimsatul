@@ -1,19 +1,12 @@
 #ifndef _gimsatul_h_INCLUDED
 #define _gimsatul_h_INCLUDED
 
-#include "ruler.h"
-#include "ring.h"
-#include "options.h"
-#include "allocate.h"
-#include "stack.h"
-#include "logging.h"
-
 typedef struct gimsatul gimsatul;
 
 // Default (partial) IPASIR interface.
 
 const char *gimsatul_signature (void);
-gimsatul *gimsatul_init (size_t variables, size_t clauses);
+gimsatul *gimsatul_init (int variables, int clauses);
 void gimsatul_add (gimsatul *solver, int signed_lit);
 int gimsatul_solve (gimsatul *solver);
 int gimsatul_value (gimsatul *solver, int lit);

@@ -6,6 +6,7 @@
 
 #include <inttypes.h>
 #include <math.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 static void *solve_routine (void *ptr) {
@@ -159,8 +160,9 @@ struct ring *solve_rings (struct ruler *ruler) {
       printf ("c conflict limit %lld\n", conflicts);
     fflush (stdout);
   }
-  for (all_rings (ring))
+  for (all_rings (ring)) {
     set_ring_limits (ring, conflicts);
+  }
   message (0, 0);
   if (threads > 1) {
     for (all_rings (ring))

@@ -8,19 +8,23 @@
 #include "simplify.h"
 #include "clone.h"
 #include "detach.h"
+#include "parse.h"
+#include "geatures.h"
+#include "message.h"
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 struct gimsatul {
-    struct options options;
+    struct options *options;
     struct ruler *ruler;
     signed char *witness;
     size_t variables, clauses;
 
     // meta information needed for gimsatul_add()
     signed char *marked;
-    struct unsigneds clause;
+    struct unsigneds *clause;
     bool trivial;
 };
 
@@ -31,15 +35,16 @@ struct gimsatul {
 gimsatul *gimsatul_init (int variables, int clauses) {
     // Adapted from gimsatul.c/main()
     struct gimsatul *solver = (struct gimsatul*) calloc(1, sizeof(struct gimsatul));
-    // initialize_options(&(solver->options));
-    solver->ruler = new_ruler(variables,&(solver->options));
+    solver->options = (struct options*) calloc(1, sizeof(struct options));
+    initialize_options(solver->options);
+    solver->options->threads = 1;
+    solver->ruler = new_ruler(variables, solver->options);
     set_signal_handlers(solver->ruler);
     solver->variables = variables;
     solver->clauses = clauses;
-    // signed char *witness = NULL;
 
     solver->marked = allocate_and_clear_block (solver->variables);
-    INIT(solver->clause);
+    solver->clause = (struct unsigneds*) calloc(1, sizeof(struct unsigneds));
     solver->trivial = false;
 
     return solver;
@@ -54,30 +59,35 @@ void gimsatul_add (gimsatul *solver, int signed_lit) {
         signed char mark = solver->marked[idx];
         unsigned unsigned_lit = 2 * idx + (sign < 0);
 #ifndef NDEBUG
-        PUSH (*original, unsigned_lit);
+        PUSH (*(solver->ruler->original), unsigned_lit);
 #endif
         if (mark == -sign) {
             ROG ("skipping trivial clause");
             solver->trivial = true;
         } else if (!mark) {
-            PUSH (solver->clause, unsigned_lit);
+            size_t OLD_SIZE = SIZE (*(solver->clause));
+            size_t OLD_CAPACITY = CAPACITY (*(solver->clause));
+            size_t NEW_CAPACITY = OLD_CAPACITY ? 2 * OLD_CAPACITY : 1;
+            size_t NEW_BYTES = NEW_CAPACITY * sizeof *(*(solver->clause)).begin;
+            
+            PUSH (*(solver->clause), unsigned_lit);
             solver->marked[idx] = sign;
         } else
             assert (mark == sign);
     } else {        // if clause finished
 #ifndef NDEBUG
-        PUSH (*original, INVALID);
+        PUSH (*(solver->ruler->original), INVALID);
 #endif
-        unsigned *literals = solver->clause.begin;
+        unsigned *literals = solver->clause->begin;
         if (!solver->ruler->inconsistent && !solver->trivial) {
-            const size_t size = SIZE (solver->clause);
+            const size_t size = SIZE (*(solver->clause));
             assert (size <= solver->ruler->size);
             if (!size) {
                 assert (!solver->ruler->inconsistent);
                 very_verbose (0, "%s", "found empty original clause");
                 solver->ruler->inconsistent = true;
             } else if (size == 1) {
-                const unsigned unit = *(solver->clause.begin);
+                const unsigned unit = *(solver->clause->begin);
                 const signed char value = solver->ruler->values[unit];
                 if (value < 0) {
                     assert (!solver->ruler->inconsistent);
@@ -91,24 +101,23 @@ void gimsatul_add (gimsatul *solver, int signed_lit) {
             else {
                 struct clause *large_clause =
                         new_large_clause (size, literals, false, 0);
-                ROGCLAUSE (large_clause, "new");
+                // ROGCLAUSE (large_clause, "new");
                 PUSH (solver->ruler->clauses, large_clause);
             }
         } else
             solver->trivial = false;
-        for (all_elements_on_stack (unsigned, unsigned_lit, solver->clause))
+        for (all_elements_on_stack (unsigned, unsigned_lit, *(solver->clause)))
             solver->marked[IDX (unsigned_lit)] = 0;
-        CLEAR (solver->clause);
+        CLEAR (*(solver->clause));
     }
 }
 
 int gimsatul_solve (gimsatul *solver) {
-    // Adapted from gimsatul.c/main()
     simplify_ruler(solver->ruler);
     clone_rings(solver->ruler);
     struct ring *winner = solve_rings(solver->ruler);
+    int res = winner ? winner->status : 0;
     signed char *witness = extend_witness(winner);
-    // check_witness(witness, solver->ruler->original);
     solver->witness = witness;
     return winner ? winner->status : 0;
 }

@@ -11,6 +11,7 @@
 #include "parse.h"
 #include "geatures.h"
 #include "message.h"
+#include "options.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -42,6 +43,7 @@ gimsatul *gimsatul_init (int variables, int clauses) {
     set_signal_handlers(solver->ruler);
     solver->variables = variables;
     solver->clauses = clauses;
+    solver->witness = NULL;
 
     solver->marked = allocate_and_clear_block (solver->variables);
     solver->clause = (struct unsigneds*) calloc(1, sizeof(struct unsigneds));
@@ -65,11 +67,6 @@ void gimsatul_add (gimsatul *solver, int signed_lit) {
             ROG ("skipping trivial clause");
             solver->trivial = true;
         } else if (!mark) {
-            size_t OLD_SIZE = SIZE (*(solver->clause));
-            size_t OLD_CAPACITY = CAPACITY (*(solver->clause));
-            size_t NEW_CAPACITY = OLD_CAPACITY ? 2 * OLD_CAPACITY : 1;
-            size_t NEW_BYTES = NEW_CAPACITY * sizeof *(*(solver->clause)).begin;
-            
             PUSH (*(solver->clause), unsigned_lit);
             solver->marked[idx] = sign;
         } else
@@ -117,9 +114,11 @@ int gimsatul_solve (gimsatul *solver) {
     clone_rings(solver->ruler);
     struct ring *winner = solve_rings(solver->ruler);
     int res = winner ? winner->status : 0;
-    signed char *witness = extend_witness(winner);
-    solver->witness = witness;
-    return winner ? winner->status : 0;
+    if (res == 10) {
+        signed char *witness = extend_witness(winner);
+        solver->witness = witness;
+    }
+    return res;
 }
 
 int gimsatul_value (gimsatul *solver, int lit) {

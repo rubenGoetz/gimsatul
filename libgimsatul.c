@@ -12,6 +12,9 @@
 #include "geatures.h"
 #include "message.h"
 #include "options.h"
+#include "parse.h"
+
+#include "options.c"
 
 #include <string.h>
 #include <stdlib.h>
@@ -131,4 +134,183 @@ void gimsatul_release (gimsatul *solver) {
     delete_ruler(solver->ruler);
     free(solver->marked);
     free(solver);
+}
+
+int gimsatul_set_option (gimsatul *solver, const char *name, int new_value) {
+//void parse_options (int argc, char **argv, struct options *opts) {
+//initialize_options (opts);
+
+#ifndef QUIET
+    const char *quiet_opt = 0;
+    const char *verbose_opt = 0;
+#endif
+    //for (int i = 1; i != argc; i++) {
+    //const char *opt = argv[i], *arg; Syntax?
+    const char *opt = name, *arg;
+    struct options *opts = solver->options;
+    if (!strcmp (opt, "-a"))
+      opts->binary = false;
+    else if (!strcmp (opt, "-f"))
+      opts->force = true;
+    else if (!strcmp (opt, "-h") || !strcmp (opt, "--help") ||
+             !strcmp (opt, "--full")) { /* hopefully no help needed */}
+    else if (!strcmp (opt, "-i") || !strcmp (opt, "--id")) {
+      print_id ();
+      return (0);
+    } else if (!strcmp (opt, "-l") || !strcmp (opt, "--log") ||
+               !strcmp (opt, "logging"))
+#ifdef LOGGING
+      verbosity = INT_MAX;
+#else
+    return 1;
+      // die ("invalid option '%s' (compiled without logging support)", opt);
+#endif
+    else if (!strcmp (opt, "-n"))
+      opts->witness = false;
+    else if (!strcmp (opt, "-O"))
+      opts->optimize = 1;
+    else if (opt[0] == '-' && opt[1] == 'O') {
+      arg = opt + 2;
+      if (!is_positive_number_string (arg) ||
+          sscanf (arg, "%u", &opts->optimize) != 1)
+        return 1;
+        // die ("invalid '-O' option '%s'", opt);
+    } else if (!strcmp (opt, "-r") || !strcmp (opt, "--resources"))
+      opts->summarize = true;
+    else if (!strcmp (opt, "-q") || !strcmp (opt, "--quiet"))
+#ifdef QUIET
+      return 1;
+      // die ("configured with '--quiet' (forces '%s)", opt);
+#else
+    {
+      if (quiet_opt)
+        return 1;
+        // die ("two quiet options '%s' and '%s'", quiet_opt, opt);
+      if (verbose_opt)
+        return 1;
+        // die ("quiet option '%s' follows verbose '%s'", opt, verbose_opt);
+      quiet_opt = opt;
+      verbosity = -1;
+    }
+#endif
+    else if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose"))
+#ifdef QUIET
+      return 1;
+      // die ("configured with '--quiet' (disables '%s')", opt);
+#else
+    {
+      if (quiet_opt)
+        return 1;
+        // die ("verbose option '%s' follows quiet '%s'", opt, quiet_opt);
+      verbose_opt = opt;
+      if (verbosity < INT_MAX)
+        verbosity++;
+    }
+#endif
+    else if (!strcmp (opt, "-V") || !strcmp (opt, "--version")) {
+      print_version ();
+      return 0;
+    } else if (!strcmp (opt, "conflicts")) {
+      if (opts->conflicts >= 0)
+        return 1;
+        // die ("multiple '--conflicts=%lld' and '%s'", opts->conflicts, opt);
+      opts->conflicts = new_value;
+      if (opts->conflicts < 0)
+        return 1;
+        // die ("invalid negative argument in '%s'", opt);
+    } else if (!strcmp (opt, "threads")) {
+      if (opts->threads)
+        {printf(">>>>> threads already set\n"); return 1;}
+        // die ("multiple '--threads=%u' and '%s'", opts->threads, opt);
+      opts->threads = new_value;
+      if (!opts->threads)
+        return 1;
+        // die ("invalid zero argument in '%s'", opt);
+      if (opts->threads > MAX_THREADS)
+        return 1;
+        // die ("invalid argument in '%s' (maximum %u)", opt, MAX_THREADS);
+    } else if (!strcmp (opt, "time")) {
+      if (opts->seconds)
+        return 1;
+        // die ("multiple '--time=%u' and '%s'", opts->seconds, opt);
+      opts->seconds = new_value;
+      if (!opts->seconds)
+        return 1;
+        // die ("invalid zero argument in '%s'", opt);
+    }
+#define OPTION(TYPE, NAME, DEFAULT, MIN, MAX, DESCRIPTION) \
+  else if (opt[0] == '-' && opt[1] == '-' && opt[2] == 'n' && \
+           opt[3] == 'o' && opt[4] == '-' && \
+           parse_option (opt + 5, #NAME)) opts->NAME = false;
+    OPTIONS
+#undef OPTION
+#define OPTION(TYPE, NAME, DEFAULT, MIN, MAX, DESCRIPTION) \
+  else if (opt[0] == '-' && opt[1] == '-' && !strcmp (#TYPE, "bool") && \
+           parse_option (opt + 2, #NAME)) opts->NAME = true;
+    OPTIONS
+#undef OPTION
+    else if (parse_option_with_value (opts, opt));
+    else if (!strcmp (opt, "--embedded")) {print_embedded_options (); return 0;}
+    else if (!strcmp (opt, "--range")) {print_option_ranges (); return 0;}
+    else if (opt[0] == '-' && opt[1])
+        return 1;
+        // die ("invalid option '%s' (try '-h')", opt);
+    else if (opts->proof.file) 
+        return 1;
+        // die ("too many arguments");
+    else if (opts->dimacs.file) {
+      if (!strcmp (opt, "-")) {
+        opts->proof.path = "<stdout>";
+        opts->proof.file = stdout;
+        opts->binary = false;
+      } else if (!opts->force && looks_like_dimacs (opt))
+        return 1;
+        // die ("proof file '%s' looks like a DIMACS file (use '-f')", opt);
+      else if (!(opts->proof.file = fopen (opt, "w")))
+        return 1;
+        // die ("can not open and write to '%s'", opt);
+      else {
+        opts->proof.path = opt;
+        opts->proof.close = true;
+      }
+    }
+    else {
+      if (!strcmp (opt, "-")) {
+        opts->dimacs.path = "<stdin>";
+        opts->dimacs.file = stdin;
+      }
+      else if (has_suffix (opt, ".bz2") || has_suffix (opt, ".gz") ||
+               has_suffix (opt, ".xz"))
+        return 1;
+        // die ("can not handle compressed file '%s'", opt);
+      else {
+        opts->dimacs.file = fopen (opt, "r");
+        opts->dimacs.close = 1;
+      }
+      if (!opts->dimacs.file)
+        return 1;
+        // die ("can not open and read from '%s'", opt);
+      opts->dimacs.path = opt;
+    }
+
+if (!opts->threads)
+    return 1;
+
+#ifndef QUIET
+    if (opts->threads <= 10)
+        prefix_format = "c%-1u ";
+    else if (opts->threads <= 100)
+        prefix_format = "c%-2u ";
+    else if (opts->threads <= 1000)
+        prefix_format = "c%-3u ";
+    else if (opts->threads <= 10000)
+        prefix_format = "c%-4u ";
+    else
+        prefix_format = "c%-5u ";
+#endif
+
+    if (opts->proof.file == stdout && verbosity >= 0)
+        opts->proof.lock = true;
+
+    return 0;
 }

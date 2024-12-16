@@ -33,12 +33,13 @@ struct gimsatul {
 
 // Default (partial) IPASIR interface.
 
-gimsatul *gimsatul_init (int variables, int clauses) {
+gimsatul *gimsatul_init (int variables, int clauses, int threads) {
     // Adapted from gimsatul.c/main()
     struct gimsatul *solver = (struct gimsatul*) calloc(1, sizeof(struct gimsatul));
     solver->options = (struct options*) calloc(1, sizeof(struct options));
     initialize_options(solver->options);
-    solver->options->threads = 1;
+    if (threads > 0) solver->options->threads = threads;
+    else solver->options->threads = 1;
     solver->ruler = new_ruler(variables, solver->options);
     set_signal_handlers(solver->ruler);
     solver->variables = variables;

@@ -3,6 +3,14 @@
 #include "random.h"
 #include "ruler.h"
 #include "utilities.h"
+#include "libgimsatul.h"
+
+#define LD_MAX_VAR 30u
+
+#define EXTERNAL_MAX_VAR ((1 << LD_MAX_VAR) - 1)
+
+#define VALID_EXTERNAL_LITERAL(LIT) \
+  ((LIT) && ((LIT) != INT_MIN) && ABS (LIT) <= EXTERNAL_MAX_VAR)
 
 void export_units (struct ring *ring) {
   struct ruler *ruler = ring->ruler;
@@ -151,7 +159,49 @@ static void export_to_ring (struct ring *ring, struct ring *other,
   }
 }
 
+
+// export Functions for Mallob
+// --------------------------------------
+static inline int gimsatul_export_literal (struct ruler* ruler, unsigned ilit) {
+  printf(">> inside gimsatul_export_literal\n");
+  const unsigned iidx = IDX (ilit);
+  printf(">> 1\n");
+  assert (iidx < (unsigned) INT_MAX);
+  printf(">> 1.5\n");
+  int elit = PEEK (ruler->export, iidx);
+  printf(">> 2\n");
+  if (!elit)
+    return 0;
+  printf(">> 3\n");
+  if (SGN (ilit))
+    elit = -elit;
+  printf(">> 4\n");
+  assert (VALID_EXTERNAL_LITERAL (elit));
+  printf(">> 5\n");
+  return elit;
+  printf(">> end gimsatul_export_literal\n");
+}
+
+void gimsatul_export_redundant_clause (struct ruler* ruler, unsigned glue, unsigned size, unsigned *lits) {
+  //printf(">> inside gimsatul_export_redundant_clause\n");
+  if (!ruler->consume_clause) return;
+  if (size > ruler->consume_clause_max_size) return;
+  glue = MAX(glue, 1);
+  glue = MIN(glue, size-1);
+  // Export clause.
+  for (unsigned i = 0; i < size; i++) {
+    // Externalize each literal
+    const unsigned ilit = lits[i];
+    const int elit = ilit;//gimsatul_export_literal (ruler, ilit);
+    ruler->consume_clause_buffer[i] = elit;
+  }
+  // Execute learnt clause callback
+  ruler->consume_clause (ruler->consume_clause_state, size, glue);
+}
+// --------------------------------------
+
 static void export_clause (struct ring *ring, struct clause *clause) {
+  //printf(">> inside export_clause\n");
   assert (exporting (ring));
   bool binary = is_binary_pointer (clause);
   unsigned glue = binary ? 1 : clause->glue;
@@ -163,6 +213,9 @@ static void export_clause (struct ring *ring, struct clause *clause) {
   struct rings *exports = export_rings (ring);
   for (all_pointers_on_stack (struct ring, other, *exports))
     export_to_ring (ring, other, clause, glue, size, redundancy);
+  
+  // export to Mallob
+  gimsatul_export_redundant_clause (ring->ruler, glue, size, clause->literals);
 }
 
 void export_binary_clause (struct ring *ring, struct watch *watch) {

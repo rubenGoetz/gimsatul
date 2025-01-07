@@ -6,6 +6,7 @@
 #include "options.h"
 #include "profile.h"
 #include "ring.h"
+#include "stack.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -105,6 +106,21 @@ struct ruler {
   struct options options;
   struct ruler_profiles profiles;
   struct ruler_statistics statistics;
+
+  // Clause export
+  void *consume_clause_state;
+  int *consume_clause_buffer;
+  unsigned consume_clause_max_size;
+  void (*consume_clause) (void *state, int size, int glue);
+  
+  // Clause import
+  void *produce_clause_state;
+  void (*produce_clause) (void *state, int **clause, int *size, int *glue);
+  unsigned long num_conflicts_at_last_import;
+
+  // Initial phase
+  bool initial_phase_defined;
+  struct phases *phases;
 };
 
 /*------------------------------------------------------------------------*/

@@ -30,21 +30,52 @@ struct gimsatul {
     signed char *marked;
     struct unsigneds *clause;
     bool trivial;
+
+    // indicates whether ruler was created already
+    bool ruler_initialized;
+
+/*
+    // Clause export
+    void *consume_clause_state;
+    int *consume_clause_buffer;
+    unsigned consume_clause_max_size;
+    void (*consume_clause) (void *state, int size, int glue);
+  
+    // Clause import
+    void *produce_clause_state;
+    void (*produce_clause) (void *state, int **clause, int *size, int *glue);
+    unsigned long num_conflicts_at_last_import;
+*/
 };
 
 // const char *gimsatul_signature (void) { return "gimsatul-" VERSION; }
 
 // Default (partial) IPASIR interface.
 
-gimsatul *gimsatul_init (int variables, int clauses, int threads) {
+void create_ruler(struct gimsatul* solver) {
+    printf(">> inside create_ruler\n");
+    if (solver->options->threads <= 0) solver->options->threads = 1;
+    solver->ruler = new_ruler(solver->variables, solver->options);
+    set_signal_handlers(solver->ruler);
+
+    solver->ruler->consume_clause_state = 0;
+    solver->ruler->consume_clause_buffer = 0;
+    solver->ruler->consume_clause_max_size = 0;
+    solver->ruler->consume_clause = 0;
+
+    solver->ruler->produce_clause_state = 0;
+    solver->ruler->produce_clause = 0;
+    solver->ruler->num_conflicts_at_last_import = 0;
+
+    solver->ruler_initialized = true;
+}
+
+gimsatul *gimsatul_init (int variables, int clauses) {
     // Adapted from gimsatul.c/main()
+    printf(">> inside gimsatul_init\n");
     struct gimsatul *solver = (struct gimsatul*) calloc(1, sizeof(struct gimsatul));
     solver->options = (struct options*) calloc(1, sizeof(struct options));
     initialize_options(solver->options);
-    if (threads > 0) solver->options->threads = threads;
-    else solver->options->threads = 1;
-    solver->ruler = new_ruler(variables, solver->options);
-    set_signal_handlers(solver->ruler);
     solver->variables = variables;
     solver->clauses = clauses;
     solver->witness = NULL;
@@ -57,6 +88,8 @@ gimsatul *gimsatul_init (int variables, int clauses, int threads) {
 }
 
 void gimsatul_add (gimsatul *solver, int signed_lit) {
+    //printf(">> inside gimsatul_add\n");
+    if (!solver->ruler_initialized) create_ruler(solver);
     // Adapted from parse.c/parse_dimacs_body()
     if (signed_lit) {
         unsigned idx = abs (signed_lit) - 1;
@@ -114,6 +147,8 @@ void gimsatul_add (gimsatul *solver, int signed_lit) {
 }
 
 int gimsatul_solve (gimsatul *solver) {
+    printf(">> inside gimsatul_solve\n");
+    if (!solver->ruler_initialized) create_ruler(solver);
     simplify_ruler(solver->ruler);
     clone_rings(solver->ruler);
     struct ring *winner = solve_rings(solver->ruler);
@@ -130,8 +165,8 @@ int gimsatul_value (gimsatul *solver, int lit) {
 }
 
 void gimsatul_release (gimsatul *solver) {
-    detach_and_delete_rings(solver->ruler);
-    delete_ruler(solver->ruler);
+    if (solver->ruler_initialized) detach_and_delete_rings(solver->ruler);
+    if (solver->ruler_initialized) delete_ruler(solver->ruler);
     free(solver->marked);
     free(solver);
 }
@@ -220,7 +255,7 @@ int gimsatul_set_option (gimsatul *solver, const char *name, int new_value) {
         // die ("invalid negative argument in '%s'", opt);
     } else if (!strcmp (opt, "threads")) {
       if (opts->threads)
-        {printf(">>>>> threads already set\n"); return 1;}
+        return 1;
         // die ("multiple '--threads=%u' and '%s'", opts->threads, opt);
       opts->threads = new_value;
       if (!opts->threads)
@@ -313,4 +348,42 @@ if (!opts->threads)
         opts->proof.lock = true;
 
     return 0;
+}
+
+
+// Adapted from kissat.h
+// *** API for Mallob ***
+
+// Sets a function to be called whenever kissat learns a clause no longer than the specified max. size.
+// The function is called with the provided state and the size and glue value of the learnt clause.
+// The clause itself is stored in the provided buffer before the function is called.
+void gimsatul_set_clause_export_callback (gimsatul * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void *state, int size, int glue)){
+    printf(">> inside gimsatul_set_clause_export_callback\n");
+    if (!solver->ruler_initialized) create_ruler(solver);
+    solver->ruler->consume_clause_state = state;
+    solver->ruler->consume_clause_buffer = buffer;
+    solver->ruler->consume_clause_max_size = max_size;
+    solver->ruler->consume_clause = consume;
+}
+
+// Sets a function which kissat may call to import a clause from another solver. The function is called
+// with the provided state and expects a literal buffer (or zero), the clause size, and the glue value as out parameters.
+// If no clause is available, the function must return clause == 0.
+void gimsatul_set_clause_import_callback (gimsatul * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue)){
+    printf(">> inside gimsatul_set_clause_import_callback\n");
+    if (!solver->ruler_initialized) create_ruler(solver);
+    solver->ruler->produce_clause_state = state;
+    solver->ruler->produce_clause = produce;
+}
+
+// Basic "external" statistics struct with some interesting properties of kissat's search.
+// Get the statistics of kissat's current search. Not thread-safe, but only reading, i.e.,
+// may (rarely) return improper values.
+// struct gimsatul_statistics gimsatul_get_statistics (gimsatul * solver){}
+
+// Provides to kissat an array of variable phase values. lookup[i] corresponds to external variable i
+// and should be 1, -1, or 0. Kissat may lookup this value for a variable and use the sign to decide
+// on the variable's initial phase. The array must be valid during the entire search procedure.
+void gimsatul_set_initial_variable_phases (gimsatul * solver, signed char *lookup, int size){
+
 }

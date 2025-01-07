@@ -6,7 +6,7 @@ typedef struct gimsatul gimsatul;
 // Default (partial) IPASIR interface.
 
 const char *gimsatul_signature (void);
-gimsatul *gimsatul_init (int variables, int clauses, int threads);
+gimsatul *gimsatul_init (int variables, int clauses);
 void gimsatul_add (gimsatul *solver, int signed_lit);
 int gimsatul_solve (gimsatul *solver);
 int gimsatul_value (gimsatul *solver, int lit);

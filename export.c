@@ -162,6 +162,7 @@ static void export_to_ring (struct ring *ring, struct ring *other,
 
 // export Functions for Mallob
 // --------------------------------------
+/*
 static inline int gimsatul_export_literal (struct ruler* ruler, unsigned ilit) {
   printf(">> inside gimsatul_export_literal\n");
   const unsigned iidx = IDX (ilit);
@@ -181,6 +182,7 @@ static inline int gimsatul_export_literal (struct ruler* ruler, unsigned ilit) {
   return elit;
   printf(">> end gimsatul_export_literal\n");
 }
+*/
 
 void gimsatul_export_redundant_clause (struct ruler* ruler, unsigned glue, unsigned size, unsigned *lits) {
   //printf(">> inside gimsatul_export_redundant_clause\n");

@@ -53,7 +53,7 @@ struct gimsatul {
 // Default (partial) IPASIR interface.
 
 void create_ruler(struct gimsatul* solver) {
-    printf(">> inside create_ruler\n");
+    // printf(">> inside create_ruler\n");
     if (solver->options->threads <= 0) solver->options->threads = 1;
     solver->ruler = new_ruler(solver->variables, solver->options);
     set_signal_handlers(solver->ruler);
@@ -72,7 +72,7 @@ void create_ruler(struct gimsatul* solver) {
 
 gimsatul *gimsatul_init (int variables, int clauses) {
     // Adapted from gimsatul.c/main()
-    printf(">> inside gimsatul_init\n");
+    // printf(">> inside gimsatul_init\n");
     struct gimsatul *solver = (struct gimsatul*) calloc(1, sizeof(struct gimsatul));
     solver->options = (struct options*) calloc(1, sizeof(struct options));
     initialize_options(solver->options);
@@ -147,7 +147,7 @@ void gimsatul_add (gimsatul *solver, int signed_lit) {
 }
 
 int gimsatul_solve (gimsatul *solver) {
-    printf(">> inside gimsatul_solve\n");
+    // printf(">> inside gimsatul_solve\n");
     if (!solver->ruler_initialized) create_ruler(solver);
     simplify_ruler(solver->ruler);
     clone_rings(solver->ruler);
@@ -358,7 +358,7 @@ if (!opts->threads)
 // The function is called with the provided state and the size and glue value of the learnt clause.
 // The clause itself is stored in the provided buffer before the function is called.
 void gimsatul_set_clause_export_callback (gimsatul * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void *state, int size, int glue)){
-    printf(">> inside gimsatul_set_clause_export_callback\n");
+    // printf(">> inside gimsatul_set_clause_export_callback\n");
     if (!solver->ruler_initialized) create_ruler(solver);
     solver->ruler->consume_clause_state = state;
     solver->ruler->consume_clause_buffer = buffer;
@@ -370,7 +370,7 @@ void gimsatul_set_clause_export_callback (gimsatul * solver, void *state, int *b
 // with the provided state and expects a literal buffer (or zero), the clause size, and the glue value as out parameters.
 // If no clause is available, the function must return clause == 0.
 void gimsatul_set_clause_import_callback (gimsatul * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue)){
-    printf(">> inside gimsatul_set_clause_import_callback\n");
+    // printf(">> inside gimsatul_set_clause_import_callback\n");
     if (!solver->ruler_initialized) create_ruler(solver);
     solver->ruler->produce_clause_state = state;
     solver->ruler->produce_clause = produce;

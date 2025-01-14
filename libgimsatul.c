@@ -97,6 +97,11 @@ void gimsatul_add (gimsatul *solver, int signed_lit) {
         signed char sign = (signed_lit < 0) ? -1 : 1;
         signed char mark = solver->marked[idx];
         unsigned unsigned_lit = 2 * idx + (sign < 0);
+        // Mallob clause sharing -----
+        while (idx >= SIZE (solver->ruler->export))
+          PUSH (solver->ruler->export, 0);
+        PEEK (solver->ruler->export, idx) = (int) abs (signed_lit);
+        // ----------
 #ifndef NDEBUG
         PUSH (*(solver->ruler->original), unsigned_lit);
 #endif

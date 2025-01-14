@@ -118,6 +118,8 @@ struct ruler {
   void (*produce_clause) (void *state, int **clause, int *size, int *glue);
   unsigned long num_conflicts_at_last_import;
 
+  struct ints export;
+
   // Initial phase
   bool initial_phase_defined;
   struct phases *phases;

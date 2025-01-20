@@ -162,30 +162,10 @@ static void export_to_ring (struct ring *ring, struct ring *other,
 }
 
 
-// export Functions for Mallob
+// export functionality for Mallob
 // --------------------------------------
-static inline int gimsatul_export_literal (struct ruler* ruler, unsigned ilit) {
-  //printf(">> inside gimsatul_export_literal\n");
-  const unsigned iidx = IDX (ilit);
-  //printf(">> 1\n");
-  assert (iidx < (unsigned) INT_MAX);
-  //printf(">> 1.5\n");
-  int elit = PEEK (ruler->export, iidx);
-  //printf(">> 2\n");
-  if (!elit)
-    return 0;
-  //printf(">> 3\n");
-  if (NEGATED (ilit))
-    elit = -elit;
-  //printf(">> 4\n");
-  assert (VALID_EXTERNAL_LITERAL (elit));
-  //printf(">> 5\n");
-  return elit;
-  //printf(">> end gimsatul_export_literal\n");
-}
 
 void gimsatul_export_redundant_clause (struct ring *ring, unsigned glue, unsigned size, unsigned *lits) {
-  //printf(">> inside gimsatul_export_redundant_clause\n");
   if (!ring->ruler->consume_clause) return;
   if (size > ring->ruler->consume_clause_max_size) return;
   glue = MAX(glue, 1);
@@ -194,7 +174,7 @@ void gimsatul_export_redundant_clause (struct ring *ring, unsigned glue, unsigne
   for (unsigned i = 0; i < size; i++) {
     // Externalize each literal
     const unsigned ilit = lits[i];
-    const int elit = gimsatul_export_literal (ring->ruler, ilit);
+    const int elit = unmap_and_export_literal(ring->ruler->unmap, ilit);
     ring->ruler->consume_clause_buffer[i] = elit;
   }
   // Execute learnt clause callback
@@ -203,7 +183,6 @@ void gimsatul_export_redundant_clause (struct ring *ring, unsigned glue, unsigne
 // --------------------------------------
 
 static void export_clause (struct ring *ring, struct clause *clause) {
-  //printf(">> inside export_clause\n");
   assert (exporting (ring));
   bool binary = is_binary_pointer (clause);
   unsigned glue = binary ? 1 : clause->glue;
@@ -213,11 +192,16 @@ static void export_clause (struct ring *ring, struct clause *clause) {
   uint64_t low = share_by_size ? glue : size;
   uint64_t redundancy = (high << 32) + low;
   struct rings *exports = export_rings (ring);
-  for (all_pointers_on_stack (struct ring, other, *exports))
+  bool exported = false;
+  for (all_pointers_on_stack (struct ring, other, *exports)) {
     export_to_ring (ring, other, clause, glue, size, redundancy);
+    exported = true;
+  }
   
   // export to Mallob
-  gimsatul_export_redundant_clause (ring, glue, size, clause->literals);
+  // TODO: make binary export compatible
+  if (!binary)
+    gimsatul_export_redundant_clause (ring, clause->glue, clause->size, clause->literals);
 }
 
 void export_binary_clause (struct ring *ring, struct watch *watch) {

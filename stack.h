@@ -78,10 +78,6 @@ struct unsigneds {
   unsigned *begin, *end, *allocated;
 };
 
-struct ints {
-  int *begin, *end, *allocated;
-};
-
 struct buffer {
   char *begin, *end, *allocated;
 };

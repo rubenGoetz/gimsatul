@@ -192,16 +192,18 @@ static void export_clause (struct ring *ring, struct clause *clause) {
   uint64_t low = share_by_size ? glue : size;
   uint64_t redundancy = (high << 32) + low;
   struct rings *exports = export_rings (ring);
-  bool exported = false;
   for (all_pointers_on_stack (struct ring, other, *exports)) {
     export_to_ring (ring, other, clause, glue, size, redundancy);
-    exported = true;
   }
   
   // export to Mallob
   // TODO: make binary export compatible
   if (!binary)
-    gimsatul_export_redundant_clause (ring, clause->glue, clause->size, clause->literals);
+    gimsatul_export_redundant_clause (ring, glue, size, clause->literals);
+  else {
+    unsigned lits[] = {lit_pointer(clause), other_pointer(clause)};
+    gimsatul_export_redundant_clause (ring, glue, size, lits);
+  }
 }
 
 void export_binary_clause (struct ring *ring, struct watch *watch) {

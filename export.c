@@ -14,39 +14,6 @@
 
 #define NEGATED(LIT) ((LIT) &1u)
 
-void export_units (struct ring *ring) {
-  struct ruler *ruler = ring->ruler;
-  struct ring_units *units = &ring->ring_units;
-  volatile signed char *values = ruler->values;
-  unsigned *end = units->end;
-  bool locked = false;
-  while (units->export != end) {
-    assert (units->export < units->end);
-    unsigned unit = *units->export ++;
-#ifndef NFASTPATH
-    if (values[unit])
-      continue;
-#endif
-    if (ring->pool && !locked) {
-      if (pthread_mutex_lock (&ruler->locks.units))
-        fatal_error ("failed to acquire unit lock");
-      locked = true;
-    }
-
-    signed char value = values[unit];
-    if (value)
-      continue;
-
-    very_verbose (ring, "exporting unit %d",
-                  unmap_and_export_literal (ruler->unmap, unit));
-    assign_ruler_unit (ruler, unit);
-    INC_UNIT_CLAUSE_STATISTICS (exported);
-  }
-
-  if (locked && pthread_mutex_unlock (&ruler->locks.units))
-    fatal_error ("failed to release unit lock");
-}
-
 static bool exporting (struct ring *ring) {
   unsigned threads = ring->threads;
   if (threads < 2)
@@ -166,8 +133,9 @@ static void export_to_ring (struct ring *ring, struct ring *other,
 // --------------------------------------
 
 void gimsatul_export_redundant_clause (struct ring *ring, unsigned glue, unsigned size, unsigned *lits) {
-  if (!ring->ruler->consume_clause) return;
-  if (size > ring->ruler->consume_clause_max_size) return;
+  //printf(">> gimsatul_export_redundant_clause\n");
+  if (!ring->consume_clause) return;
+  if (size > ring->consume_clause_max_size) return;
   glue = MAX(glue, 1);
   glue = MIN(glue, size-1);
   // Export clause.
@@ -175,12 +143,50 @@ void gimsatul_export_redundant_clause (struct ring *ring, unsigned glue, unsigne
     // Externalize each literal
     const unsigned ilit = lits[i];
     const int elit = unmap_and_export_literal(ring->ruler->unmap, ilit);
-    ring->ruler->consume_clause_buffer[i] = elit;
+    ring->consume_clause_buffer[ring->id][i] = elit;
   }
   // Execute learnt clause callback
-  ring->ruler->consume_clause (ring->ruler->consume_clause_state, size, glue);
+  ring->consume_clause (ring->consume_clause_state, size, glue, ring->id); // add pointer to lits
 }
 // --------------------------------------
+
+void export_units (struct ring *ring) {
+  struct ruler *ruler = ring->ruler;
+  struct ring_units *units = &ring->ring_units;
+  volatile signed char *values = ruler->values;
+  unsigned *end = units->end;
+  bool locked = false;
+  while (units->export != end) {
+    assert (units->export < units->end);
+    unsigned unit = *units->export ++;
+#ifndef NFASTPATH
+    if (values[unit])
+      continue;
+#endif
+    if (ring->pool && !locked) {
+      if (pthread_mutex_lock (&ruler->locks.units))
+        fatal_error ("failed to acquire unit lock");
+      locked = true;
+    }
+
+    signed char value = values[unit];
+    if (value)
+      continue;
+
+    very_verbose (ring, "exporting unit %d",
+                  unmap_and_export_literal (ruler->unmap, unit));
+    assign_ruler_unit (ruler, unit);
+    // TODO: export unit clause
+    // kissat_export_redundant_clause (solver, 1, 1, &lit);
+    unsigned *lits = &unit;
+    gimsatul_export_redundant_clause (ring, 1, 1, lits);
+
+    INC_UNIT_CLAUSE_STATISTICS (exported);
+  }
+
+  if (locked && pthread_mutex_unlock (&ruler->locks.units))
+    fatal_error ("failed to release unit lock");
+}
 
 static void export_clause (struct ring *ring, struct clause *clause) {
   assert (exporting (ring));

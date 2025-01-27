@@ -109,9 +109,9 @@ struct ruler {
 
   // Clause export
   void *consume_clause_state;
-  int *consume_clause_buffer;
+  int **consume_clause_buffer;
   unsigned consume_clause_max_size;
-  void (*consume_clause) (void *state, int size, int glue);
+  void (*consume_clause) (void *state, int size, int glue, int ring_id);
   
   // Clause import
   void *produce_clause_state;

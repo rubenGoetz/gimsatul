@@ -357,7 +357,7 @@ if (!opts->threads)
 // Sets a function to be called whenever kissat learns a clause no longer than the specified max. size.
 // The function is called with the provided state and the size and glue value of the learnt clause.
 // The clause itself is stored in the provided buffer before the function is called.
-void gimsatul_set_clause_export_callback (gimsatul * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void *state, int size, int glue)){
+void gimsatul_set_clause_export_callback (gimsatul * solver, void *state, int **buffer, unsigned max_size, void (*consume) (void *state, int size, int glue, int ring_id)){
     // printf(">> inside gimsatul_set_clause_export_callback\n");
     if (!solver->ruler_initialized) create_ruler(solver);
     solver->ruler->consume_clause_state = state;

@@ -243,6 +243,17 @@ struct ring *new_ring (struct ruler *ruler) {
     a->exp = 1.0;
   ring->limits.conflicts = -1;
 
+  // copy mallob clause im-/export from ruler
+  ring->consume_clause_state = ruler->consume_clause_state;
+  ring->consume_clause_buffer = ruler->consume_clause_buffer;
+  ring->consume_clause_max_size = ruler->consume_clause_max_size;
+  ring->consume_clause = ruler->consume_clause;
+  
+  // Clause import
+  ring->produce_clause_state =ruler->produce_clause_state;
+  ring->produce_clause = ruler->produce_clause;
+  ring->num_conflicts_at_last_import = ruler->num_conflicts_at_last_import;
+
   return ring;
 }
 

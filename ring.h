@@ -180,6 +180,17 @@ struct ring {
 
   unsigned randec;
   uint64_t random;
+
+  // Clause export
+  void *consume_clause_state;
+  int **consume_clause_buffer;
+  unsigned consume_clause_max_size;
+  void (*consume_clause) (void *state, int size, int glue, int ring_id);
+  
+  // Clause import
+  void *produce_clause_state;
+  void (*produce_clause) (void *state, int **clause, int *size, int *glue);
+  unsigned long num_conflicts_at_last_import;
 };
 
 /*------------------------------------------------------------------------*/

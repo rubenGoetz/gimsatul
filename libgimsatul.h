@@ -45,7 +45,7 @@ void gimsatul_print_statistics (gimsatul *solver);
 // Sets a function to be called whenever kissat learns a clause no longer than the specified max. size.
 // The function is called with the provided state and the size and glue value of the learnt clause.
 // The clause itself is stored in the provided buffer before the function is called.
-void gimsatul_set_clause_export_callback (gimsatul * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void *state, int size, int glue));
+void gimsatul_set_clause_export_callback (gimsatul * solver, void *state, int** buffer, unsigned max_size, void (*consume) (void *state, int size, int glue, int ring_id));
 
 // Sets a function which kissat may call to import a clause from another solver. The function is called
 // with the provided state and expects a literal buffer (or zero), the clause size, and the glue value as out parameters.

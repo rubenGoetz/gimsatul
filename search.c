@@ -15,6 +15,7 @@
 #include "ruler.h"
 #include "simplify.h"
 #include "walk.h"
+#include "libgimsatul.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -33,7 +34,7 @@ void iterate (struct ring *ring) {
     int report_level = (ring->iterating <= 0);
     verbose_report (ring, 'i', report_level);
 #endif
-    export_units (ring);
+    export_units (ring, true);
     units->iterate = units->end;
   }
   ring->iterating = 0;
@@ -137,8 +138,11 @@ int search (struct ring *ring) {
       break;
     else if (reducing (ring))
       reduce (ring);
-    else if (restarting (ring))
-      restart (ring);
+    else if (restarting (ring)) {
+      if (ring->id == 0) {
+        gimsatul_import_redundant_clauses(ring);
+      }
+      restart (ring);}
     else if (switching_mode (ring))
       switch_mode (ring);
     else if (rephasing (ring))

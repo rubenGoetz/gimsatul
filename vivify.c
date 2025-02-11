@@ -469,7 +469,7 @@ static void vivify_learn (struct vivifier *vivifier,
     res = new_local_binary_clause (ring, true, lit, other);
     trace_add_binary (&ring->trace, lit, other);
     if (ring->options.vivify_export)
-      export_binary_clause (ring, res);
+      export_binary_clause (ring, res, true);
   } else {
     struct watcher *watcher = get_watcher (ring, candidate);
     unsigned glue = SIZE (*levels);

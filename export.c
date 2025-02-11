@@ -150,7 +150,7 @@ void gimsatul_export_redundant_clause (struct ring *ring, unsigned glue, unsigne
 }
 // --------------------------------------
 
-void export_units (struct ring *ring) {
+void export_units (struct ring *ring, bool export_to_mallob) {
   struct ruler *ruler = ring->ruler;
   struct ring_units *units = &ring->ring_units;
   volatile signed char *values = ruler->values;
@@ -176,10 +176,11 @@ void export_units (struct ring *ring) {
     very_verbose (ring, "exporting unit %d",
                   unmap_and_export_literal (ruler->unmap, unit));
     assign_ruler_unit (ruler, unit);
-    // TODO: export unit clause
-    // kissat_export_redundant_clause (solver, 1, 1, &lit);
-    unsigned *lits = &unit;
-    gimsatul_export_redundant_clause (ring, 1, 1, lits);
+    
+    if (export_to_mallob) {
+      unsigned *lits = &unit;
+      gimsatul_export_redundant_clause (ring, 1, 1, lits);
+    }
 
     INC_UNIT_CLAUSE_STATISTICS (exported);
   }
@@ -188,7 +189,7 @@ void export_units (struct ring *ring) {
     fatal_error ("failed to release unit lock");
 }
 
-static void export_clause (struct ring *ring, struct clause *clause) {
+static void export_clause (struct ring *ring, struct clause *clause, bool export_to_mallob) {
   assert (exporting (ring));
   bool binary = is_binary_pointer (clause);
   unsigned glue = binary ? 1 : clause->glue;
@@ -203,7 +204,8 @@ static void export_clause (struct ring *ring, struct clause *clause) {
   }
   
   // export to Mallob
-  // TODO: make binary export compatible
+  if (!export_to_mallob)
+    return;
   if (!binary)
     gimsatul_export_redundant_clause (ring, glue, size, clause->literals);
   else {
@@ -212,13 +214,13 @@ static void export_clause (struct ring *ring, struct clause *clause) {
   }
 }
 
-void export_binary_clause (struct ring *ring, struct watch *watch) {
+void export_binary_clause (struct ring *ring, struct watch *watch, bool export_to_mallob) {
   assert (is_binary_pointer (watch));
   if (!exporting (ring))
     return;
   LOGWATCH (watch, "exporting");
   struct clause *clause = (struct clause *) watch;
-  export_clause (ring, clause);
+  export_clause (ring, clause, export_to_mallob);
 }
 
 void export_large_clause (struct ring *ring, struct clause *clause) {
@@ -247,7 +249,7 @@ void export_large_clause (struct ring *ring, struct clause *clause) {
     }
   }
   LOGCLAUSE (clause, "exporting");
-  export_clause (ring, clause);
+  export_clause (ring, clause, true);
 }
 
 void flush_pool (struct ring *ring) {

@@ -13,12 +13,23 @@
 #include "message.h"
 #include "options.h"
 #include "parse.h"
+#include "statistics.h"
+#include "macros.h"
+#include "import.h"
 
 #include "options.c"
 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#define VALID_INTERNAL_LITERAL(LIT) ((LIT) < ring->ruler->size)
+
+#define ABS(LIT) (LIT < 0 ? -LIT : LIT)
+
+#define VALID_EXTERNAL_LITERAL(LIT) ((LIT) && ((LIT) != INT_MIN) && ABS (LIT) <= MAX_VAR)
+
+#define INVALID_REF UINT_MAX
 
 struct gimsatul {
     struct options *options;
@@ -33,19 +44,6 @@ struct gimsatul {
 
     // indicates whether ruler was created already
     bool ruler_initialized;
-
-/*
-    // Clause export
-    void *consume_clause_state;
-    int *consume_clause_buffer;
-    unsigned consume_clause_max_size;
-    void (*consume_clause) (void *state, int size, int glue);
-  
-    // Clause import
-    void *produce_clause_state;
-    void (*produce_clause) (void *state, int **clause, int *size, int *glue);
-    unsigned long num_conflicts_at_last_import;
-*/
 };
 
 // const char *gimsatul_signature (void) { return "gimsatul-" VERSION; }
@@ -354,6 +352,189 @@ if (!opts->threads)
 // Adapted from kissat.h
 // *** API for Mallob ***
 
+const unsigned gimsatul_import_literal(struct ring * ring, int elit) {
+  // printf(">> inside gimsatul_import_literal\n");
+  unsigned idx = abs (elit) - 1;
+  assert (idx < (unsigned) ring->ruler->size);
+  signed char sign = (elit < 0) ? -1 : 1;
+  //signed char mark = solver->marked[idx];
+  return (const unsigned) 2 * idx + (sign < 0);
+}
+
+bool gimsatul_importing_redundant_clauses (struct ring * ring) 
+{
+  // printf(">> inside gimsatul_importing_redundant_clauses\n");
+  if (ring->produce_clause == 0) return false;
+  if (ring->level != 0) return false;
+  unsigned long conflicts = SEARCH_CONFLICTS;
+  if (conflicts == ring->num_conflicts_at_last_import) return false;
+  return true;
+}
+
+void gimsatul_import_redundant_clauses (struct ring * ring) 
+{
+  // printf(">> inside gimsatul_import_redundant_clauses\n");
+  int *buffer = 0;
+  int size = 0;
+  int glue = 0;
+  ring->num_conflicts_at_last_import = SEARCH_CONFLICTS;
+  // TODO: put in ruler
+  struct unsigneds *clause = (struct unsigneds*) calloc(1, sizeof(struct unsigneds));
+
+  while (true) {
+    ring->produce_clause (ring->produce_clause_state, &buffer, &size, &glue);
+
+    //printf("KISSAT TRY_LEARN size=%i\n", size);
+
+    if (size <= 0 || buffer == 0) {
+      break; // No more clauses
+    }
+
+    // Literal flags to possibly check against:
+    // bool eliminate:1; /* set by kissat_mark_removed_literal */
+    //!bool eliminated:1; /*do not import*/
+    // bool fixed:1; /*can be handled explicitly*/
+    // bool subsume:1; /* set by kissat_mark_added_literal, also when importing the clause */
+    // bool sweep:1; /*could be fine*/
+    // bool transitive:1; /*seems to be used nowhere*/
+
+    // Analyze each of the literals
+    bool okToImport = true;
+    unsigned effectiveSize = 0;
+    for (unsigned i = 0; i < (unsigned)size; i++) {
+      int elit = buffer[i];
+      if (!VALID_EXTERNAL_LITERAL (elit)) {
+	      ring->r_ed++;
+        okToImport = false;
+        break;
+      }
+      const unsigned ilit = gimsatul_import_literal (ring, elit);
+      if (!VALID_INTERNAL_LITERAL (ilit)) {
+	      ring->r_ed++;
+        okToImport = false;
+        break;
+      }
+      const unsigned idx = IDX (ilit);
+      // TODO: check Flags
+      /*
+      flags *flags = FLAGS (idx);
+      if (flags->fixed) {
+        const value value = gimsatul_fixed (solver, ilit);
+        if (value > 0) {
+          // Literal is fixed as positive: drop entire clause
+          solver->r_fx++;
+          okToImport = false;
+          break;
+        } else if (value < 0) {
+          // Literal is fixed as negated: drop this literal
+          buffer[i] = 0;
+        } else {
+          // Fixed, but neither positive nor negated? Drop clause to be safe
+          solver->r_fx++;
+          okToImport = false;
+          break;
+        }
+      } else if (!flags->active || flags->eliminated) {
+        // Literal in an invalid state for importing this clause
+        okToImport = false;
+
+        if (!flags->active) solver->r_ia++;
+        if (flags->eliminate) solver->r_ee++;
+        if (flags->eliminated) solver->r_ed++;
+        if (flags->subsume) solver->r_ss++;
+        if (flags->sweep) solver->r_sw++;
+        if (flags->transitive) solver->r_tr++;
+
+        break;
+      } else {
+        // This literal is fine
+        effectiveSize++;
+      }*/
+      // Replacing flag logic
+      if (ring->ruler->eliminate[idx]) {
+        okToImport = false;
+        ring->r_ed++;
+      } else if (!(ring->inactive[idx] && !ring->values[idx])) {
+        okToImport = false;
+        ring->r_fx++; // correct?
+      } else 
+        effectiveSize++;
+    }
+
+    // Drop clause, or no valid literals?
+    if (!okToImport || effectiveSize == 0) {
+      ring->num_discarded_external_clauses++;
+      continue;
+    }
+
+    if (effectiveSize == 1) {
+      // Unit clause!
+
+      // Get literal
+      unsigned i = 0; while (buffer[i] == 0) i++;
+      const unsigned lit = gimsatul_import_literal (ring, buffer[i]);
+      assert (VALID_INTERNAL_LITERAL (lit));
+
+      // Learn unit clause
+      //printf("GIMSATUL LEARN %i\n", lit);
+      // Import shared unit while avoiding its re-export
+      //gimsatul_learned_unit_from_import (ring, lit);  // TODO: implement
+      assign_ruler_unit (ring->ruler, lit);
+      ring->num_imported_external_clauses++;
+      continue;
+    }
+
+    // Larger clause of size >= 2
+
+    /*if (effectiveSize > CAPACITY_STACK (solver->clause)) {
+      // Clause is too large
+      solver->r_tl++;
+      solver->num_discarded_external_clauses++;
+      continue;
+    }*/
+
+    // Write clause into internal stack
+    assert (EMPTY (*(clause)));
+    //printf("KISSAT LEARN");
+    for (unsigned i = 0; i < (unsigned)size; i++) {
+      if (buffer[i] == 0) continue;
+      const unsigned lit = gimsatul_import_literal (ring, buffer[i]);
+      assert (VALID_INTERNAL_LITERAL (lit));
+      PUSH (*(clause), lit);
+      //printf(" %i", lit);
+    }
+    //printf("\n");
+    assert (SIZE (*(clause)) == effectiveSize);
+
+    // Learn clause, re-export iff the clause was just shortened
+    // (i.e., block re-export iff the clause is imported without changes)
+    // const unsigned int ref = gimsatul_new_redundant_clause_from_import (ring, glue);   // TODO: implement
+    if (effectiveSize == 2) {
+      struct watch *c = new_local_binary_clause(ring, true, *(clause->begin), *(clause->end));
+      import_binary_from_mallob (ring, c);
+    }
+    else {
+      struct clause *c = new_large_clause (size, clause->begin, false, 0);
+      import_large_clause_from_mallob (ring, c);
+    }
+    
+
+    /*if (ref != INVALID_REF) {
+      // Valid reference => Long clause (size>2) 
+      assert (effectiveSize > 2);
+      clause *c = kissat_dereference_clause (solver, ref);
+      c->used = 1 + (glue <= GET_OPTION (tier2));
+    }*/
+
+    // Clear internal stack for the next learnt clause
+    CLEAR (*(clause));
+    ring->num_imported_external_clauses++;
+  }
+
+  free(clause);
+  //printf("KISSAT next import @ %lu conflicts\n", solver->num_conflicts_at_last_import);
+}
+
 // Sets a function to be called whenever kissat learns a clause no longer than the specified max. size.
 // The function is called with the provided state and the size and glue value of the learnt clause.
 // The clause itself is stored in the provided buffer before the function is called.
@@ -384,6 +565,4 @@ void gimsatul_set_clause_import_callback (gimsatul * solver, void *state, void (
 // Provides to kissat an array of variable phase values. lookup[i] corresponds to external variable i
 // and should be 1, -1, or 0. Kissat may lookup this value for a variable and use the sign to decide
 // on the variable's initial phase. The array must be valid during the entire search procedure.
-void gimsatul_set_initial_variable_phases (gimsatul * solver, signed char *lookup, int size){
-
-}
+void gimsatul_set_initial_variable_phases (gimsatul * solver, signed char *lookup, int size){}

@@ -9,6 +9,7 @@
 #include "ruler.h"
 #include "trace.h"
 #include "utilities.h"
+#include "export.c"
 
 static bool import_units (struct ring *ring) {
   assert (ring->pool);
@@ -185,6 +186,12 @@ static bool import_binary (struct ring *ring, struct clause *clause) {
   really_import_binary_clause (ring, lit, other);
 
   return true;
+}
+
+bool import_binary_from_mallob (struct ring *ring, struct watch *clause) {
+  bool res = import_binary(ring, (struct clause *) clause);
+  export_binary_clause(ring, clause, false);
+  return res;
 }
 
 static bool subsumed_large_clause (struct ring *ring,
@@ -398,6 +405,12 @@ static bool import_large_clause (struct ring *ring, struct clause *clause) {
   really_import_large_clause (ring, clause, lit, other);
 
   return true;
+}
+
+bool import_large_clause_from_mallob (struct ring *ring, struct clause *clause) {
+  bool res = import_large_clause (ring, clause);
+  export_clause (ring, clause, false);
+  return res;
 }
 
 bool import_shared (struct ring *ring) {

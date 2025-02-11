@@ -254,6 +254,19 @@ struct ring *new_ring (struct ruler *ruler) {
   ring->produce_clause = ruler->produce_clause;
   ring->num_conflicts_at_last_import = ruler->num_conflicts_at_last_import;
 
+  // Additional statistics
+  ring->num_imported_external_clauses = ruler->num_imported_external_clauses;
+  ring->num_discarded_external_clauses = ruler->num_discarded_external_clauses;
+  ring->r_ee = ruler->r_ee;
+  ring->r_ed = ruler->r_ed;
+  ring->r_pb = ruler->r_pb;
+  ring->r_ss = ruler->r_ss;
+  ring->r_sw = ruler->r_sw;
+  ring->r_tr = ruler->r_tr;
+  ring->r_fx = ruler->r_fx;
+  ring->r_ia = ruler->r_ia;
+  ring->r_tl = ruler->r_tl;
+
   return ring;
 }
 

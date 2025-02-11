@@ -396,7 +396,7 @@ bool analyze (struct ring *ring, struct watch *reason) {
       trace_add_binary (&ring->trace, not_uip, other);
       if (ring->options.eagerly_subsume)
         eagerly_subsume_last_learned (ring);
-      export_binary_clause (ring, learned);
+      export_binary_clause (ring, learned, true);
     } else {
       if (ring->options.sort_deduced)
         sort_deduced_clause (ring);

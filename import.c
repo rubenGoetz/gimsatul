@@ -9,7 +9,13 @@
 #include "ruler.h"
 #include "trace.h"
 #include "utilities.h"
-#include "export.c"
+#include "export.h"
+
+#define VALID_INTERNAL_LITERAL(LIT) (IDX((LIT)) < ring->size && (LIT) != INVALID)
+
+#define ABS(LIT) (LIT < 0 ? -LIT : LIT)
+
+#define VALID_EXTERNAL_LITERAL(LIT) ((LIT) && ((LIT) != INT_MIN) && ABS (LIT) <= MAX_VAR)
 
 static bool import_units (struct ring *ring) {
   assert (ring->pool);
@@ -186,12 +192,6 @@ static bool import_binary (struct ring *ring, struct clause *clause) {
   really_import_binary_clause (ring, lit, other);
 
   return true;
-}
-
-bool import_binary_from_mallob (struct ring *ring, struct watch *clause) {
-  bool res = import_binary(ring, (struct clause *) clause);
-  export_binary_clause(ring, clause, false);
-  return res;
 }
 
 static bool subsumed_large_clause (struct ring *ring,
@@ -407,12 +407,6 @@ static bool import_large_clause (struct ring *ring, struct clause *clause) {
   return true;
 }
 
-bool import_large_clause_from_mallob (struct ring *ring, struct clause *clause) {
-  bool res = import_large_clause (ring, clause);
-  export_clause (ring, clause, false);
-  return res;
-}
-
 bool import_shared (struct ring *ring) {
   if (!ring->pool)
     return false;
@@ -458,4 +452,134 @@ bool import_shared (struct ring *ring) {
   if (is_binary_pointer (clause))
     return import_binary (ring, clause);
   return import_large_clause (ring, clause);
+}
+
+// Import from Mallob
+// ----------------------------
+
+static inline bool import_binary_from_mallob (struct ring *ring, struct watch *clause) {
+  bool res = import_binary(ring, (struct clause *) clause);
+  export_binary_clause(ring, clause, false);
+  return res;
+}
+
+static inline bool import_large_clause_from_mallob (struct ring *ring, struct clause *clause) {
+  bool res = import_large_clause (ring, clause);
+  export_clause (ring, clause, false);
+  return res;
+}
+
+bool gimsatul_importing_redundant_clauses (struct ring * ring) 
+{
+  if (ring->produce_clause == 0) return false;
+  if (ring->level != 0) return false;
+  unsigned long conflicts = SEARCH_CONFLICTS;
+  if (conflicts == ring->num_conflicts_at_last_import) return false;
+  return true;
+}
+
+void gimsatul_import_redundant_clauses (struct ring * ring) 
+{
+  int *buffer = 0;
+  int size = 0;
+  int glue = 0;
+  ring->num_conflicts_at_last_import = SEARCH_CONFLICTS;
+  // TODO: put in ruler
+  struct unsigneds *clause = ring->ruler->mallob_import_clause;
+
+  while (true) {
+    ring->produce_clause (ring->produce_clause_state, &buffer, &size, &glue);
+
+    if (size <= 0 || buffer == 0) {
+      break; // No more clauses
+    }
+
+    // Analyze each of the literals
+    bool okToImport = true;
+    unsigned effectiveSize = 0;
+    for (unsigned i = 0; i < (unsigned)size; i++) {
+      int elit = buffer[i];
+      assert (elit != 0);
+      if (!VALID_EXTERNAL_LITERAL (elit)) {
+	      ring->r_ed++;
+        okToImport = false;
+        break;
+      }
+      const unsigned ilit = map_and_import_literal (ring->ruler->map, buffer[i]);
+      assert (ilit >= 0);
+      assert (ring->size == ring->ruler->compact);
+      if (!VALID_INTERNAL_LITERAL (ilit)) {
+	      ring->r_ed++;
+        okToImport = false;
+        break;
+      }
+      assert (IDX (ilit) < ring->size);
+      const unsigned idx = IDX (ilit);  // TODO: idx is already calculated in map_and_import_literal
+
+      // Filter clause by literal flags
+      if (ring->inactive[idx]) {
+        okToImport = false;
+        break;
+      } else if (ring->ruler->eliminate[idx]) {
+        okToImport = false;
+        ring->r_ed++;
+        break;
+      } else if (ring->values[ilit] > 0) {    // only fixed because of decition lvl 0
+        okToImport = false;
+        ring->r_fx++;
+        break;
+      } else if (!(VAR (ilit)->level)) {      // idk? adapted from gimsatul internal import
+        okToImport = false;
+        break;
+      } else if (ring->values[ilit] <= 0) {    // literal already falsified => Import shortened clause
+        buffer[i] = 0;
+      } else 
+        effectiveSize++;
+    }
+
+    // Drop clause, or no valid literals?
+    if (!okToImport || effectiveSize == 0) {
+      ring->num_discarded_external_clauses++;
+      continue;
+    }
+
+    if (effectiveSize == 1) {   // Unit clause
+      // Get literal
+      unsigned i = 0; while (buffer[i] == 0) i++;
+      const unsigned lit = map_and_import_literal (ring->ruler->map, buffer[i]);
+      assert (IDX (lit) < ring->size);
+      assert (VALID_INTERNAL_LITERAL (lit));
+
+      // Learn unit clause
+      assign_ruler_unit (ring->ruler, buffer[i]);
+      ring->num_imported_external_clauses++;
+      continue;
+    }
+
+    // Larger clause of size >= 2
+    CLEAR (*(clause));
+    assert (EMPTY (*(clause)));
+
+    // Write clause into internal stack
+    for (unsigned i = 0; i < (unsigned)size; i++) {
+      if (buffer[i] == 0) continue;
+      const unsigned lit = map_and_import_literal (ring->ruler->map, buffer[i]);
+      assert (IDX (lit) < ring->size);
+      assert (VALID_INTERNAL_LITERAL (lit));
+      PUSH (*(clause), lit);
+    }
+    assert (SIZE (*(clause)) == effectiveSize);
+
+    if (effectiveSize == 2) {   // binary clause
+      struct watch *c = new_local_binary_clause(ring, true, *(clause->begin), *(clause->end));
+      import_binary_from_mallob (ring, c);
+    }
+    else {    // large clause
+      struct clause *learned_clause = new_large_clause (effectiveSize, clause->begin, true, glue);
+      import_large_clause_from_mallob (ring, learned_clause);
+    }
+
+    ring->num_imported_external_clauses++;
+  }
+
 }

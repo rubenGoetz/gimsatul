@@ -34,6 +34,7 @@ struct ruler *new_ruler (size_t size, struct options *opts) {
 
   ruler->eliminate = allocate_block (size);
   ruler->subsume = allocate_block (size);
+  ruler->map = allocate_and_clear_array (size, sizeof *ruler->map);
   memset (ruler->eliminate, 1, size);
   memset (ruler->subsume, 1, size);
 
@@ -42,6 +43,9 @@ struct ruler *new_ruler (size_t size, struct options *opts) {
   ruler->occurrences =
       allocate_and_clear_array (2 * size, sizeof *ruler->occurrences);
   ruler->values = allocate_and_clear_block (2 * size);
+
+  ruler->mallob_import_clause = allocate_and_clear_block (sizeof (struct unsigneds));
+  INIT (*(ruler->mallob_import_clause));
 
 #ifndef NDEBUG
   ruler->original = allocate_and_clear_block (sizeof *ruler->original);
@@ -94,6 +98,7 @@ void delete_ruler (struct ruler *ruler) {
   release_occurrences (ruler);
   free (ruler->threads);
   free (ruler->unmap);
+  free (ruler->map);
   free ((void *) ruler->values);
 
   release_clauses (ruler);
@@ -106,6 +111,9 @@ void delete_ruler (struct ruler *ruler) {
   free (ruler->units.begin);
 
   RELEASE (ruler->trace.buffer);
+
+  RELEASE (*(ruler->mallob_import_clause));
+  free (ruler->mallob_import_clause);
 
   free (ruler);
 }

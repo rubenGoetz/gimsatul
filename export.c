@@ -3,7 +3,6 @@
 #include "random.h"
 #include "ruler.h"
 #include "utilities.h"
-#include "libgimsatul.h"
 
 #define LD_MAX_VAR 30u
 
@@ -133,7 +132,6 @@ static void export_to_ring (struct ring *ring, struct ring *other,
 // --------------------------------------
 
 void gimsatul_export_redundant_clause (struct ring *ring, unsigned glue, unsigned size, unsigned *lits) {
-  //printf(">> gimsatul_export_redundant_clause\n");
   if (!ring->consume_clause) return;
   if (size > ring->consume_clause_max_size) return;
   glue = MAX(glue, 1);
@@ -189,7 +187,7 @@ void export_units (struct ring *ring, bool export_to_mallob) {
     fatal_error ("failed to release unit lock");
 }
 
-static void export_clause (struct ring *ring, struct clause *clause, bool export_to_mallob) {
+void export_clause (struct ring *ring, struct clause *clause, bool export_to_mallob) {
   assert (exporting (ring));
   bool binary = is_binary_pointer (clause);
   unsigned glue = binary ? 1 : clause->glue;
@@ -223,7 +221,7 @@ void export_binary_clause (struct ring *ring, struct watch *watch, bool export_t
   export_clause (ring, clause, export_to_mallob);
 }
 
-void export_large_clause (struct ring *ring, struct clause *clause) {
+void export_large_clause (struct ring *ring, struct clause *clause, bool export_to_mallob) {
   assert (!is_binary_pointer (clause));
   if (!exporting (ring))
     return;
@@ -249,7 +247,7 @@ void export_large_clause (struct ring *ring, struct clause *clause) {
     }
   }
   LOGCLAUSE (clause, "exporting");
-  export_clause (ring, clause, true);
+  export_clause (ring, clause, export_to_mallob);
 }
 
 void flush_pool (struct ring *ring) {

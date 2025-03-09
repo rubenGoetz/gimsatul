@@ -8,8 +8,9 @@ struct ring;
 struct watch;
 
 void export_units (struct ring *, bool);
+void export_clause (struct ring *,struct clause *, bool);
 void export_binary_clause (struct ring *, struct watch *, bool);
-void export_large_clause (struct ring *, struct clause *);
+void export_large_clause (struct ring *, struct clause *, bool);
 void flush_pool (struct ring *);
 
 #endif

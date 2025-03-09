@@ -525,6 +525,17 @@ void compact_ruler (struct simplifier *simplifier, bool initially) {
   if (old_unmap)
     free (old_unmap);
 
+  // TODO: make more effizient?
+  for (unsigned i = 0; i < ruler->size; i++)
+    ruler->map[i] = INVALID;
+
+  //unmap[mapped] = old_idx;
+  for (unsigned i = 0; i < new_compact; i++) {
+    unsigned old_idx = unmap[i];
+    ruler->map[old_idx] = i;
+  }
+  
+
   ruler->unmap = unmap;
   ruler->trace.unmap = unmap;
   for (all_rings (ring))

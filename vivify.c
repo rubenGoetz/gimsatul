@@ -486,7 +486,7 @@ static void vivify_learn (struct vivifier *vivifier,
     res = watch_first_two_literals_in_large_clause (ring, clause);
     trace_add_clause (&ring->trace, clause);
     if (ring->options.vivify_export)
-      export_large_clause (ring, clause);
+      export_large_clause (ring, clause, true);
   }
 }
 

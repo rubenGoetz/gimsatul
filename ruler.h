@@ -85,7 +85,8 @@ struct ruler {
 
   struct clauses *occurrences;
   pthread_t *threads;
-  unsigned *unmap;
+  unsigned *unmap;    // internal => original
+  unsigned *map;      // original => internal
   signed char volatile *values;
 
   struct ruler_barriers barriers;
@@ -117,6 +118,7 @@ struct ruler {
   void *produce_clause_state;
   void (*produce_clause) (void *state, int **clause, int *size, int *glue);
   unsigned long num_conflicts_at_last_import;
+  struct unsigneds *mallob_import_clause;
 
   // Additional statistics
   unsigned long num_imported_external_clauses;

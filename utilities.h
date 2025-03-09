@@ -77,6 +77,22 @@ static inline int unmap_and_export_literal (unsigned *unmap,
   return signed_lit;
 }
 
+static inline unsigned map_and_import_literal (unsigned *map,
+                                               int elit) {
+  unsigned idx = abs (elit) - 1;
+  signed char sign = (elit < 0) ? -1 : 1;
+  unsigned unsigned_lit = 2 * idx + (sign < 0);
+  unsigned eidx = IDX (unsigned_lit);
+  assert (idx == eidx);
+  unsigned iidx = map[eidx];
+  if (iidx == INVALID)
+    return INVALID;
+  unsigned ilit = LIT (iidx);
+  if (SGN (ilit))
+    ilit = NOT (ilit);
+  return ilit;
+}
+
 static inline size_t cache_lines (void *p, void *q) {
   if (p == q)
     return 0;

@@ -420,7 +420,7 @@ bool analyze (struct ring *ring, struct watch *reason) {
         eagerly_subsume_last_learned (ring);
         insert_last_learned (ring, learned);
       }
-      export_large_clause (ring, learned_clause);
+      export_large_clause (ring, learned_clause, true);
     }
     assign_with_reason (ring, not_uip, learned);
   }

@@ -20,8 +20,8 @@ signed char decide_phase (struct ring *ring, unsigned idx) {
   unsigned target = ring->options.target_phases;
   signed char res = 0;
   if (ring->options.force_phase) {
-    //unsigned phase_idx = ring->ruler->unmap[idx];
-    res = initial_phase (ring);// * ring->initial_phases[phase_idx];
+    unsigned phase_idx = ring->ruler->unmap[idx];
+    res = initial_phase (ring) * ring->initial_phases[phase_idx];
   }
   if (!res)
     if ((target && ring->stable) || (target > 1 && !ring->stable))
@@ -29,8 +29,8 @@ signed char decide_phase (struct ring *ring, unsigned idx) {
   if (!res)
     res = p->saved;
   if (!res) {
-    //unsigned phase_idx = ring->ruler->unmap[idx];
-    res = initial_phase (ring);// * ring->initial_phases[phase_idx];
+    unsigned phase_idx = ring->ruler->unmap[idx];
+    res = initial_phase (ring) * ring->initial_phases[phase_idx];
   }
   return res;
 }

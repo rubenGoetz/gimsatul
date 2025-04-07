@@ -35,6 +35,7 @@ struct ruler *new_ruler (size_t size, struct options *opts) {
   ruler->eliminate = allocate_block (size);
   ruler->subsume = allocate_block (size);
   ruler->map = allocate_and_clear_array (size, sizeof *ruler->map);
+  ruler->map_filled = false;
   memset (ruler->eliminate, 1, size);
   memset (ruler->subsume, 1, size);
 

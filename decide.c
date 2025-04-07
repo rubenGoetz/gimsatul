@@ -5,6 +5,7 @@
 #include "options.h"
 #include "random.h"
 #include "ring.h"
+#include "ruler.h"
 #include "utilities.h"
 
 #include <inttypes.h>
@@ -13,19 +14,24 @@ signed char initial_phase (struct ring *ring) {
   return ring->options.phase ? 1 : -1;
 }
 
+// TODO: Mallob phases hier einbauen?
 signed char decide_phase (struct ring *ring, unsigned idx) {
   struct phases *p = ring->phases + idx;
   unsigned target = ring->options.target_phases;
   signed char res = 0;
-  if (ring->options.force_phase)
-    res = initial_phase (ring);
+  if (ring->options.force_phase) {
+    //unsigned phase_idx = ring->ruler->unmap[idx];
+    res = initial_phase (ring);// * ring->initial_phases[phase_idx];
+  }
   if (!res)
     if ((target && ring->stable) || (target > 1 && !ring->stable))
       res = p->target;
   if (!res)
     res = p->saved;
-  if (!res)
-    res = initial_phase (ring);
+  if (!res) {
+    //unsigned phase_idx = ring->ruler->unmap[idx];
+    res = initial_phase (ring);// * ring->initial_phases[phase_idx];
+  }
   return res;
 }
 

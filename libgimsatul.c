@@ -28,6 +28,7 @@ struct gimsatul {
     struct ruler *ruler;
     signed char *witness;
     size_t variables, clauses;
+    char **initial_phases_pointer;
 
     // meta information needed for gimsatul_add()
     signed char *marked;
@@ -57,10 +58,12 @@ void create_ruler(struct gimsatul* solver) {
     solver->ruler->produce_clause = 0;
     solver->ruler->num_conflicts_at_last_import = 0;
 
+    solver->ruler->initial_phases_pointer = solver->initial_phases_pointer;
+
     solver->ruler_initialized = true;
 }
 
-gimsatul *gimsatul_init (int variables, int clauses) {
+gimsatul *gimsatul_init (int variables, int clauses, char **phases) {
     // Adapted from gimsatul.c/main()
     struct gimsatul *solver = (struct gimsatul*) calloc(1, sizeof(struct gimsatul));
     solver->options = (struct options*) calloc(1, sizeof(struct options));
@@ -72,6 +75,8 @@ gimsatul *gimsatul_init (int variables, int clauses) {
     solver->marked = allocate_and_clear_block (solver->variables);
     solver->clause = (struct unsigneds*) calloc(1, sizeof(struct unsigneds));
     solver->trivial = false;
+
+    solver->initial_phases_pointer = phases;
 
     return solver;
 }
@@ -364,11 +369,59 @@ void gimsatul_set_clause_import_callback (gimsatul * solver, void *state, void (
 }
 
 // Basic "external" statistics struct with some interesting properties of kissat's search.
+// struct gimsatul_statistics {
+//   unsigned long propagations;
+//   unsigned long decisions;
+//   unsigned long conflicts;
+//   unsigned long restarts;
+//   unsigned long imported;
+//   unsigned long discarded;
+//   unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;
+// };
 // Get the statistics of kissat's current search. Not thread-safe, but only reading, i.e.,
 // may (rarely) return improper values.
-// struct gimsatul_statistics gimsatul_get_statistics (gimsatul * solver){}
+struct gimsatul_statistics gimsatul_get_statistics (gimsatul * solver){
+  struct ruler *ruler = solver->ruler;
+  struct gimsatul_statistics out_stats;
+
+  unsigned acc_propagations = 0;
+  unsigned acc_decisions = 0;
+  unsigned acc_conflicts = 0;
+  unsigned acc_restarts = 0;
+
+  for (all_rings (ring)) {
+    acc_propagations += ring->statistics.contexts->propagations;
+    acc_decisions += ring->statistics.contexts->decisions;
+    acc_conflicts += ring->statistics.contexts->conflicts;
+    acc_restarts += ring->statistics.restarts;
+  }
+
+  out_stats.propagations = acc_propagations;
+  out_stats.decisions = acc_decisions;
+  out_stats.conflicts = acc_conflicts;
+  out_stats.restarts = acc_restarts;
+  out_stats.imported = ruler->num_imported_external_clauses;
+  out_stats.discarded = ruler->num_discarded_external_clauses;
+  out_stats.r_ee = ruler->r_ee;
+  out_stats.r_ee = ruler->r_ee;
+  out_stats.r_ed = ruler->r_ed;
+  out_stats.r_pb = ruler->r_pb;
+  out_stats.r_ss = ruler->r_ss;
+  out_stats.r_sw = ruler->r_sw;
+  out_stats.r_tr = ruler->r_tr;
+  out_stats.r_fx = ruler->r_fx;
+  out_stats.r_ia = ruler->r_ia;
+  out_stats.r_tl = ruler->r_tl;
+
+  return out_stats;
+}
 
 // Provides to kissat an array of variable phase values. lookup[i] corresponds to external variable i
 // and should be 1, -1, or 0. Kissat may lookup this value for a variable and use the sign to decide
 // on the variable's initial phase. The array must be valid during the entire search procedure.
 void gimsatul_set_initial_variable_phases (gimsatul * solver, signed char *lookup, int size){}
+
+// UTIL
+int get_threads(gimsatul *solver) {
+  return (int) solver->ruler->options.threads;
+}

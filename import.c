@@ -10,6 +10,7 @@
 #include "trace.h"
 #include "utilities.h"
 #include "export.h"
+#include "analyze.h"
 
 #define VALID_INTERNAL_LITERAL(LIT) (IDX((LIT)) < ring->size && (LIT) != INVALID)
 
@@ -484,8 +485,8 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
   int size = 0;
   int glue = 0;
   ring->num_conflicts_at_last_import = SEARCH_CONFLICTS;
-  // TODO: put in ruler
-  struct unsigneds *clause = ring->ruler->mallob_import_clause;
+  struct ruler *ruler = ring->ruler;
+  struct unsigneds *clause = ruler->mallob_import_clause;
 
   while (true) {
     ring->produce_clause (ring->produce_clause_state, &buffer, &size, &glue);
@@ -501,58 +502,83 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
       int elit = buffer[i];
       assert (elit != 0);
       if (!VALID_EXTERNAL_LITERAL (elit)) {
-	      ring->r_ed++;
+	      ruler->r_ed++;
         okToImport = false;
         break;
       }
-      const unsigned ilit = map_and_import_literal (ring->ruler->map, buffer[i]);
+      const unsigned ilit = map_and_import_literal (ruler, buffer[i]);
+      if (ilit == INVALID) {
+        ruler->r_ed++;
+        okToImport = false;
+        break;
+      }
+      // printf("buffer[i]=%i\n", buffer[i]);
+      assert (ABS(buffer[i]) <= ring->ruler->size);
+      assert (ilit != INVALID);
       assert (ilit >= 0);
-      assert (ring->size == ring->ruler->compact);
+      assert (ilit <= 2 * ring->size);
+      assert (ring->size == ruler->compact);
+      int reverse_mapped_lit = unmap_and_export_literal (ruler->unmap, ilit);
+      // printf(">> buffer=%i, ilit=%u, rev_lit=%i\n", buffer[i], ilit, reverse_mapped_lit);
+      assert (reverse_mapped_lit == buffer[i]);
       if (!VALID_INTERNAL_LITERAL (ilit)) {
-	      ring->r_ed++;
+	      ruler->r_ed++;
         okToImport = false;
         break;
       }
       assert (IDX (ilit) < ring->size);
       const unsigned idx = IDX (ilit);  // TODO: idx is already calculated in map_and_import_literal
 
+      /*
+      if (values[lit] <= 0)
+        continue;
+      if (VAR (lit)->level)
+        continue;
+      */
+
       // Filter clause by literal flags
       if (ring->inactive[idx]) {
         okToImport = false;
         break;
-      } else if (ring->ruler->eliminate[idx]) {
+      } else if (ruler->eliminate[idx]) {
         okToImport = false;
-        ring->r_ed++;
+        ruler->r_ed++;
         break;
       } else if (ring->values[ilit] > 0) {    // only fixed because of decition lvl 0
         okToImport = false;
-        ring->r_fx++;
+        ruler->r_fx++;
         break;
       } else if (!(VAR (ilit)->level)) {      // idk? adapted from gimsatul internal import
         okToImport = false;
         break;
-      } else if (ring->values[ilit] <= 0) {    // literal already falsified => Import shortened clause
+      } else if (ring->values[ilit] < 0) {    // literal already falsified => Import shortened clause
         buffer[i] = 0;
+        // evaluates SAT instances to unsat if clause is used...
+        okToImport = false;
+        break;
       } else 
         effectiveSize++;
     }
 
     // Drop clause, or no valid literals?
     if (!okToImport || effectiveSize == 0) {
-      ring->num_discarded_external_clauses++;
+      ruler->num_discarded_external_clauses++;
       continue;
     }
 
     if (effectiveSize == 1) {   // Unit clause
       // Get literal
       unsigned i = 0; while (buffer[i] == 0) i++;
-      const unsigned lit = map_and_import_literal (ring->ruler->map, buffer[i]);
+      const unsigned lit = map_and_import_literal (ruler/*->map*/, buffer[i]);
       assert (IDX (lit) < ring->size);
       assert (VALID_INTERNAL_LITERAL (lit));
 
       // Learn unit clause
-      assign_ruler_unit (ring->ruler, buffer[i]);
-      ring->num_imported_external_clauses++;
+      trace_add_unit (&ring->trace, lit);
+      assign_ring_unit (ring, lit);
+      // ring->iterating = 1;
+
+      ruler->num_imported_external_clauses++;
       continue;
     }
 
@@ -563,23 +589,62 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
     // Write clause into internal stack
     for (unsigned i = 0; i < (unsigned)size; i++) {
       if (buffer[i] == 0) continue;
-      const unsigned lit = map_and_import_literal (ring->ruler->map, buffer[i]);
+      const unsigned lit = map_and_import_literal (ruler/*->map*/, buffer[i]);
       assert (IDX (lit) < ring->size);
       assert (VALID_INTERNAL_LITERAL (lit));
       PUSH (*(clause), lit);
     }
     assert (SIZE (*(clause)) == effectiveSize);
+    struct watch *learned;
 
     if (effectiveSize == 2) {   // binary clause
-      struct watch *c = new_local_binary_clause(ring, true, *(clause->begin), *(clause->end));
-      import_binary_from_mallob (ring, c);
+      // struct watch *c = new_local_binary_clause(ring, true, *(clause->begin), *(clause->end));
+      // import_binary_from_mallob (ring, c);
+      
+      // -------
+
+      // printf(">> import binary clause\n");
+      // assert (VAR (other)->level == jump);
+      learned = new_local_binary_clause (ring, true, clause->begin[0], clause->begin[1]);
+      trace_add_binary (&ring->trace, clause->begin[0], clause->begin[1]);
+      if (ring->options.eagerly_subsume)
+        eagerly_subsume_last_learned (ring);
+      export_binary_clause (ring, learned, false);
     }
     else {    // large clause
-      struct clause *learned_clause = new_large_clause (effectiveSize, clause->begin, true, glue);
-      import_large_clause_from_mallob (ring, learned_clause);
-    }
+      // struct clause *learned_clause = new_large_clause (effectiveSize, clause->begin, true, glue);
+      // import_large_clause_from_mallob (ring, learned_clause);
+      // ----------
 
-    ring->num_imported_external_clauses++;
+      // printf(">> import large clause\n");
+      unsigned *literals = clause->begin;
+
+      if (ring->options.sort_deduced)
+        sort_deduced_clause (ring);
+      /*else if (VAR (other)->level != jump) {
+        unsigned *p = literals + 2, replacement;
+        while (assert (p != ring_clause->end),
+               VAR (replacement = *p)->level != jump)
+          p++;
+        literals[1] = replacement;
+        *p = other;
+      }*/
+      struct clause *learned_clause =
+          new_large_clause (size, literals, true, glue);
+      learned_clause->origin = ring->id;
+      LOGCLAUSE (learned_clause, "new");
+      learned = watch_first_two_literals_in_large_clause (ring, learned_clause);
+      assert (!is_binary_pointer (learned));
+      trace_add_clause (&ring->trace, learned_clause);
+      if (ring->options.eagerly_subsume) {
+        eagerly_subsume_last_learned (ring);
+        insert_last_learned (ring, learned);
+      }
+      export_large_clause (ring, learned_clause, false);
+    }
+    //assign_with_reason (ring, clause->begin[0], learned);
+
+    ruler->num_imported_external_clauses++;
   }
 
 }

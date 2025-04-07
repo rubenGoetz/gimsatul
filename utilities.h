@@ -3,6 +3,7 @@
 
 #include "macros.h"
 #include "options.h"
+#include "ruler.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -77,18 +78,22 @@ static inline int unmap_and_export_literal (unsigned *unmap,
   return signed_lit;
 }
 
-static inline unsigned map_and_import_literal (unsigned *map,
+static inline unsigned map_and_import_literal (/*unsigned *map,*/ struct ruler *ruler,
                                                int elit) {
+  unsigned *map = ruler->map;
   unsigned idx = abs (elit) - 1;
   signed char sign = (elit < 0) ? -1 : 1;
   unsigned unsigned_lit = 2 * idx + (sign < 0);
+  if (!ruler->map_filled)
+    return unsigned_lit;
   unsigned eidx = IDX (unsigned_lit);
   assert (idx == eidx);
+  assert (idx < ruler->size);
   unsigned iidx = map[eidx];
   if (iidx == INVALID)
     return INVALID;
   unsigned ilit = LIT (iidx);
-  if (SGN (ilit))
+  if (sign < 0)
     ilit = NOT (ilit);
   return ilit;
 }

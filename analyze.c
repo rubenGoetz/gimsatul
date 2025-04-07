@@ -106,7 +106,7 @@ static bool larger_trail_position (unsigned *pos, unsigned a, unsigned b) {
 
 #define LARGER_TRAIL_POS(A, B) larger_trail_position (pos, (A), (B))
 
-static void sort_deduced_clause (struct ring *ring) {
+void sort_deduced_clause (struct ring *ring) {
   LOGTMP ("clause before sorting");
   unsigned *pos = ring->trail.pos;
   SORT_STACK (unsigned, ring->clause, LARGER_TRAIL_POS);
@@ -161,7 +161,7 @@ static void flush_last_learned (struct ring *ring) {
     *q++ = INVALID;
 }
 
-static void eagerly_subsume_last_learned (struct ring *ring) {
+void eagerly_subsume_last_learned (struct ring *ring) {
   signed char *marks = ring->marks;
   for (all_elements_on_stack (unsigned, lit, ring->clause)) {
     assert (!marks[lit]);
@@ -207,7 +207,7 @@ static void eagerly_subsume_last_learned (struct ring *ring) {
   flush_last_learned (ring);
 }
 
-static void insert_last_learned (struct ring *ring, struct watch *learned) {
+void insert_last_learned (struct ring *ring, struct watch *learned) {
   unsigned prev = index_pointer (learned);
   unsigned *end = ring->last_learned + ring->options.eagerly_subsume;
   for (unsigned *p = ring->last_learned; p != end; p++) {

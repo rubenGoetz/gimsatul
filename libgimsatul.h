@@ -6,7 +6,7 @@ typedef struct gimsatul gimsatul;
 // Default (partial) IPASIR interface.
 
 const char *gimsatul_signature (void);
-gimsatul *gimsatul_init (int variables, int clauses);
+gimsatul *gimsatul_init (int variables, int clauses, char **phases);
 void gimsatul_add (gimsatul *solver, int signed_lit);
 int gimsatul_solve (gimsatul *solver);
 int gimsatul_value (gimsatul *solver, int lit);
@@ -63,5 +63,8 @@ struct gimsatul_statistics gimsatul_get_statistics (gimsatul * solver);
 // and should be 1, -1, or 0. Kissat may lookup this value for a variable and use the sign to decide
 // on the variable's initial phase. The array must be valid during the entire search procedure.
 void gimsatul_set_initial_variable_phases (gimsatul * solver, signed char *lookup, int size);
+
+// UTIL
+int get_threads(gimsatul *solver);
 
 #endif

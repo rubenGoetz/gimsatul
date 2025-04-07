@@ -132,7 +132,8 @@ static void export_to_ring (struct ring *ring, struct ring *other,
 // --------------------------------------
 
 void gimsatul_export_redundant_clause (struct ring *ring, unsigned glue, unsigned size, unsigned *lits) {
-  if (!ring->consume_clause) return;
+  // if (ring->id > 0) return;
+  if (!ring->ruler->consume_clause) return;
   if (size > ring->consume_clause_max_size) return;
   glue = MAX(glue, 1);
   glue = MIN(glue, size-1);
@@ -140,11 +141,18 @@ void gimsatul_export_redundant_clause (struct ring *ring, unsigned glue, unsigne
   for (unsigned i = 0; i < size; i++) {
     // Externalize each literal
     const unsigned ilit = lits[i];
+    assert (IDX (ilit) < ring->size);
     const int elit = unmap_and_export_literal(ring->ruler->unmap, ilit);
+    assert ((elit < 0 ? -elit : elit) <= ring->ruler->size);
+    if (elit == 0) {
+      // printf(">> elit == 0 in gimsatul_export_redundant_clause\n");
+      return;
+    }
+    assert (elit != 0);
     ring->consume_clause_buffer[ring->id][i] = elit;
   }
   // Execute learnt clause callback
-  ring->consume_clause (ring->consume_clause_state, size, glue, ring->id); // add pointer to lits
+  ring->consume_clause (ring->ruler->consume_clause_state, size, glue, ring->id); // add pointer to lits
 }
 // --------------------------------------
 

@@ -534,6 +534,7 @@ void compact_ruler (struct simplifier *simplifier, bool initially) {
     unsigned old_idx = unmap[i];
     ruler->map[old_idx] = i;
   }
+  ruler->map_filled = true;
   
 
   ruler->unmap = unmap;

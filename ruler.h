@@ -87,6 +87,7 @@ struct ruler {
   pthread_t *threads;
   unsigned *unmap;    // internal => original
   unsigned *map;      // original => internal
+  bool map_filled;    // TODO: check if necessary
   signed char volatile *values;
 
   struct ruler_barriers barriers;
@@ -129,7 +130,7 @@ struct ruler {
 
   // Initial phase
   bool initial_phase_defined;
-  struct phases *phases;
+  char **initial_phases_pointer;
 };
 
 /*------------------------------------------------------------------------*/

@@ -488,6 +488,9 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
   struct ruler *ruler = ring->ruler;
   struct unsigneds *clause = ruler->mallob_import_clause;
 
+  // assertion for lvl 0
+  assert (ring->level == 0);
+
   while (true) {
     ring->produce_clause (ring->produce_clause_state, &buffer, &size, &glue);
 
@@ -529,13 +532,6 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
       assert (IDX (ilit) < ring->size);
       const unsigned idx = IDX (ilit);  // TODO: idx is already calculated in map_and_import_literal
 
-      /*
-      if (values[lit] <= 0)
-        continue;
-      if (VAR (lit)->level)
-        continue;
-      */
-
       // Filter clause by literal flags
       if (ring->inactive[idx]) {
         okToImport = false;
@@ -553,9 +549,6 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
         break;
       } else if (ring->values[ilit] < 0) {    // literal already falsified => Import shortened clause
         buffer[i] = 0;
-        // evaluates SAT instances to unsat if clause is used...
-        okToImport = false;
-        break;
       } else 
         effectiveSize++;
     }

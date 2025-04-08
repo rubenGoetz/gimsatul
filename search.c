@@ -139,10 +139,11 @@ int search (struct ring *ring) {
     else if (reducing (ring))
       reduce (ring);
     else if (restarting (ring)) {
+      restart (ring);
       if (ring->id == 0) {
         gimsatul_import_redundant_clauses(ring);
       }
-      restart (ring);}
+    }
     else if (switching_mode (ring))
       switch_mode (ring);
     else if (rephasing (ring))

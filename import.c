@@ -635,7 +635,7 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
       }
       export_large_clause (ring, learned_clause, false);
     }
-    //assign_with_reason (ring, clause->begin[0], learned);
+    assign_with_reason (ring, clause->begin[0], learned);
 
     ruler->num_imported_external_clauses++;
   }

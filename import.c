@@ -612,8 +612,8 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
       // printf(">> import large clause\n");
       unsigned *literals = clause->begin;
 
-      if (ring->options.sort_deduced)
-        sort_deduced_clause (ring);
+      //if (ring->options.sort_deduced)
+      //  sort_deduced_clause (ring);
       /*else if (VAR (other)->level != jump) {
         unsigned *p = literals + 2, replacement;
         while (assert (p != ring_clause->end),
@@ -635,7 +635,7 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
       }
       export_large_clause (ring, learned_clause, false);
     }
-    assign_with_reason (ring, clause->begin[0], learned);
+    //assign_with_reason (ring, clause->begin[0], learned);
 
     ruler->num_imported_external_clauses++;
   }

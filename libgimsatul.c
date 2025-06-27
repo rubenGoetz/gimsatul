@@ -191,7 +191,7 @@ int gimsatul_set_option (gimsatul *solver, const char *name, int new_value) {
 #ifdef LOGGING
       verbosity = INT_MAX;
 #else
-    return 1;
+      return 1;
       // die ("invalid option '%s' (compiled without logging support)", opt);
 #endif
     else if (!strcmp (opt, "-n"))
@@ -412,6 +412,8 @@ struct gimsatul_statistics gimsatul_get_statistics (gimsatul * solver){
   out_stats.r_fx = ruler->r_fx;
   out_stats.r_ia = ruler->r_ia;
   out_stats.r_tl = ruler->r_tl;
+  out_stats.r_ilitLvl = ruler->r_ilitLvl;
+  out_stats.r_inactive = ruler->r_inactive;
 
   return out_stats;
 }

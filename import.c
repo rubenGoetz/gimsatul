@@ -534,6 +534,7 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
 
       // Filter clause by literal flags
       if (ring->inactive[idx]) {
+        ruler->r_inactive++;
         okToImport = false;
         break;
       } else if (ruler->eliminate[idx]) {
@@ -545,6 +546,7 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
         ruler->r_fx++;
         break;
       } else if (!(VAR (ilit)->level)) {      // idk? adapted from gimsatul internal import
+        ruler->r_ilitLvl++;
         okToImport = false;
         break;
       } else if (ring->values[ilit] < 0) {    // literal already falsified => Import shortened clause

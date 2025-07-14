@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <inttypes.h>
+#include <stdatomic.h>
 
 static bool iterating (struct ring *ring) {
   struct ring_units *units = &ring->ring_units;
@@ -140,9 +141,13 @@ int search (struct ring *ring) {
       reduce (ring);
     else if (restarting (ring)) {
       restart (ring);
-      if (ring->id == 0) {
+      if (!atomic_flag_test_and_set(&(ring->ruler->is_importing))) {
         gimsatul_import_redundant_clauses(ring);
+        atomic_flag_clear(&(ring->ruler->is_importing));
       }
+      //if (ring->id == 0) {
+      //  gimsatul_import_redundant_clauses(ring);
+      //}
     }
     else if (switching_mode (ring))
       switch_mode (ring);

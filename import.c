@@ -490,11 +490,12 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
 
   // assertion for lvl 0
   assert (ring->level == 0);
+  unsigned imported_clauses = 0;
 
   while (true) {
     ring->produce_clause (ring->produce_clause_state, &buffer, &size, &glue);
 
-    if (size <= 0 || buffer == 0) {
+    if (size <= 0 || buffer == 0 || imported_clauses >= ring->ruler->options.threads) {
       break; // No more clauses
     }
 
@@ -640,6 +641,7 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
     //assign_with_reason (ring, clause->begin[0], learned);
 
     ruler->num_imported_external_clauses++;
+    imported_clauses++;
   }
 
 }

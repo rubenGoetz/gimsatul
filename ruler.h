@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdatomic.h>
 
 struct ruler_trail {
   unsigned *begin;
@@ -118,6 +119,7 @@ struct ruler {
   // Clause import
   void *produce_clause_state;
   void (*produce_clause) (void *state, int **clause, int *size, int *glue);
+  atomic_flag is_importing;
   unsigned long num_conflicts_at_last_import;
   struct unsigneds *mallob_import_clause;
 

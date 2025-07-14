@@ -48,6 +48,8 @@ struct ruler *new_ruler (size_t size, struct options *opts) {
   ruler->mallob_import_clause = allocate_and_clear_block (sizeof (struct unsigneds));
   INIT (*(ruler->mallob_import_clause));
 
+  atomic_flag_clear(&(ruler->is_importing));
+
 #ifndef NDEBUG
   ruler->original = allocate_and_clear_block (sizeof *ruler->original);
 #endif

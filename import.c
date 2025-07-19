@@ -458,6 +458,36 @@ bool import_shared (struct ring *ring) {
 // Import from Mallob
 // ----------------------------
 
+static unsigned get_free_slots(struct ring *ring) {
+  // iterate through all pools and find minimum free slots
+  // printf(">> ---------- ring %d ----------\n", ring->id);
+  unsigned min_free_slots = SIZE_POOL;
+  // struct rings rings = ring->ruler->rings;
+  struct ruler *ruler = ring->ruler;
+  
+  for (all_rings(other)) {
+    if (other->id == ring->id)
+      continue;
+
+    struct pool *pool = ring->pool + other->id;
+
+    struct bucket *start = pool->bucket;
+    struct bucket *end = start + SIZE_POOL;
+
+    unsigned free_slots = 0;
+    for (struct bucket *b = start; b != end; b++)
+      if (!b->shared) free_slots++;
+
+    if (free_slots < min_free_slots)
+      min_free_slots = free_slots;
+
+    // printf(">> ring %d: buffer %d has %d empty slots\n", ring->id, other->id, free_slots);
+  }
+  // printf(">> ring %d can import %d clauses\n", ring->id, min_free_slots);
+  // printf(">> ----------------------------\n");
+  return min_free_slots;
+}
+
 static inline bool import_binary_from_mallob (struct ring *ring, struct watch *clause) {
   bool res = import_binary(ring, (struct clause *) clause);
   export_binary_clause(ring, clause, false);
@@ -488,14 +518,20 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
   struct ruler *ruler = ring->ruler;
   struct unsigneds *clause = ruler->mallob_import_clause;
 
+  unsigned free_slots = get_free_slots(ring);
+
   // assertion for lvl 0
   assert (ring->level == 0);
   unsigned imported_clauses = 0;
 
   while (true) {
+    if (imported_clauses >= free_slots) {
+      ruler->r_bufferFull++;
+    }
+
     ring->produce_clause (ring->produce_clause_state, &buffer, &size, &glue);
 
-    if (size <= 0 || buffer == 0 || imported_clauses >= ring->ruler->options.threads) {
+    if (size <= 0 || buffer == 0) {
       break; // No more clauses
     }
 
@@ -522,9 +558,10 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
       assert (ilit >= 0);
       assert (ilit <= 2 * ring->size);
       assert (ring->size == ruler->compact);
+#ifndef NDEBUG
       int reverse_mapped_lit = unmap_and_export_literal (ruler->unmap, ilit);
-      // printf(">> buffer=%i, ilit=%u, rev_lit=%i\n", buffer[i], ilit, reverse_mapped_lit);
       assert (reverse_mapped_lit == buffer[i]);
+#endif
       if (!VALID_INTERNAL_LITERAL (ilit)) {
 	      ruler->r_ed++;
         okToImport = false;

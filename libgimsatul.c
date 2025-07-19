@@ -414,6 +414,7 @@ struct gimsatul_statistics gimsatul_get_statistics (gimsatul * solver){
   out_stats.r_tl = ruler->r_tl;
   out_stats.r_ilitLvl = ruler->r_ilitLvl;
   out_stats.r_inactive = ruler->r_inactive;
+  out_stats.r_bufferFull = ruler->r_bufferFull;
 
   return out_stats;
 }

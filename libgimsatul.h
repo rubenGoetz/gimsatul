@@ -54,7 +54,7 @@ void gimsatul_set_clause_import_callback (gimsatul * solver, void *state, void (
 
 // Basic "external" statistics struct with some interesting properties of kissat's search.
 struct gimsatul_statistics {unsigned long propagations; unsigned long decisions; unsigned long conflicts; unsigned long restarts;
-    unsigned long imported; unsigned long discarded; unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl,r_inactive,r_ilitLvl;};
+    unsigned long imported; unsigned long discarded; unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl,r_inactive,r_ilitLvl,r_bufferFull;};
 // Get the statistics of kissat's current search. Not thread-safe, but only reading, i.e.,
 // may (rarely) return improper values.
 struct gimsatul_statistics gimsatul_get_statistics (gimsatul * solver);

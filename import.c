@@ -462,6 +462,7 @@ static unsigned get_free_slots(struct ring *ring) {
   // iterate through all pools and find minimum free slots
   // printf(">> ---------- ring %d ----------\n", ring->id);
   unsigned min_free_slots = SIZE_POOL;
+  unsigned second_min_free_slots = SIZE_POOL;
   // struct rings rings = ring->ruler->rings;
   struct ruler *ruler = ring->ruler;
   
@@ -478,14 +479,18 @@ static unsigned get_free_slots(struct ring *ring) {
     for (struct bucket *b = start; b != end; b++)
       if (!b->shared) free_slots++;
 
-    if (free_slots < min_free_slots)
+    if (free_slots < min_free_slots) {
+      second_min_free_slots = min_free_slots;
       min_free_slots = free_slots;
+    } else if (free_slots < second_min_free_slots) {
+      second_min_free_slots = free_slots;
+    }
 
     // printf(">> ring %d: buffer %d has %d empty slots\n", ring->id, other->id, free_slots);
   }
   // printf(">> ring %d can import %d clauses\n", ring->id, min_free_slots);
   // printf(">> ----------------------------\n");
-  return min_free_slots;
+  return second_min_free_slots;
 }
 
 static inline bool import_binary_from_mallob (struct ring *ring, struct watch *clause) {

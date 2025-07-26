@@ -523,14 +523,14 @@ void gimsatul_import_redundant_clauses (struct ring * ring)
   struct ruler *ruler = ring->ruler;
   struct unsigneds *clause = ruler->mallob_import_clause;
 
-  unsigned free_slots = get_free_slots(ring);
+  // unsigned free_slots = get_free_slots(ring);
 
   // assertion for lvl 0
   assert (ring->level == 0);
   unsigned imported_clauses = 0;
 
   while (true) {
-    if (imported_clauses >= free_slots) {
+    if (imported_clauses >= SIZE_POOL / 2) {
       ruler->r_bufferFull++;
     }
 
